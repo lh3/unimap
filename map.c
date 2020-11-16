@@ -282,7 +282,7 @@ static void *worker_pipeline(void *shared, int step, void *in)
 		int with_comment = !!(p->opt->flag & MM_F_COPY_COMMENT);
         step_t *s;
         s = (step_t*)calloc(1, sizeof(step_t));
-		s->seq = mm_bseq_read3(p->fp, p->mini_batch_size, with_qual, with_comment, &s->n_seq);
+		s->seq = mm_bseq_read(p->fp, p->mini_batch_size, with_qual, with_comment, &s->n_seq);
 		if (s->seq) {
 			s->p = p;
 			for (i = 0; i < s->n_seq; ++i)
