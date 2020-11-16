@@ -77,7 +77,7 @@ static inline int tq_shift(tiny_queue_t *q)
 void mm_sketch(void *km, const char *str, int len, int w, int k, uint32_t rid, int is_hpc, mm128_v *p)
 {
 	uint64_t shift1 = 2 * (k - 1), mask = (1ULL<<2*k) - 1, kmer[2] = {0,0};
-	int i, j, l, buf_pos, min_pos, kmer_span = 0;
+	int i, j, l, buf_pos, min_pos, kmer_span = 0, n0 = p->n;
 	mm128_t buf[256], min = { UINT64_MAX, UINT64_MAX };
 	tiny_queue_t tq;
 
@@ -140,4 +140,27 @@ void mm_sketch(void *km, const char *str, int len, int w, int k, uint32_t rid, i
 	}
 	if (min.x != UINT64_MAX)
 		kv_push(mm128_t, km, *p, min);
+	if (p->n - n0 >= 2) {
+		int n_del = 0;
+		for (i = n0 + 1, j = n0; i <= (int)p->n; ++i) {
+			if (i == (int)p->n || p->a[i].x != p->a[j].x) {
+				if (i - j >= 2) {
+					int st, en;
+					if (i == (int)p->n || (j > n0 && p->a[j-1].x < p->a[i].x))
+						st = j + 1, en = i;
+					else st = j, en = i - 1;
+					for (l = st; l < en; ++l)
+						p->a[l].x = (uint64_t)-1;
+					n_del += i - j - 1;
+				}
+				j = i;
+			}
+		}
+		if (n_del > 0) {
+			for (i = n0, j = n0; i < (int)p->n; ++i)
+				if (p->a[i].x != (uint64_t)-1)
+					p->a[j++] = p->a[i];
+			p->n = j;
+		}
+	}
 }
