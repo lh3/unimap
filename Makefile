@@ -99,8 +99,8 @@ bseq.o: bseq.h kvec.h kalloc.h kseq.h
 chain.o: unimap.h umpriv.h bseq.h kseq.h kalloc.h
 esterr.o: umpriv.h unimap.h bseq.h kseq.h
 format.o: kalloc.h umpriv.h unimap.h bseq.h kseq.h
-hit.o: umpriv.h unimap.h bseq.h kseq.h kalloc.h khash.h
-index.o: kthread.h bseq.h unimap.h umpriv.h kseq.h kvec.h kalloc.h khash.h
+hit.o: umpriv.h unimap.h bseq.h kseq.h kalloc.h khashl.h
+index.o: kthread.h bseq.h unimap.h umpriv.h kseq.h kvec.h kalloc.h khashl.h
 index.o: ksort.h
 kalloc.o: kalloc.h
 ksw2_extd2_sse.o: ksw2.h kalloc.h
@@ -109,7 +109,7 @@ ksw2_extz2_sse.o: ksw2.h kalloc.h
 ksw2_ll_sse.o: ksw2.h kalloc.h
 kthread.o: kthread.h
 main.o: bseq.h unimap.h umpriv.h kseq.h ketopt.h
-map.o: kthread.h kvec.h kalloc.h umpriv.h unimap.h bseq.h kseq.h khash.h
+map.o: kthread.h kvec.h kalloc.h umpriv.h unimap.h bseq.h kseq.h khashl.h
 misc.o: umpriv.h unimap.h bseq.h kseq.h ksort.h
 options.o: umpriv.h unimap.h bseq.h kseq.h
 sketch.o: kvec.h kalloc.h umpriv.h unimap.h bseq.h kseq.h

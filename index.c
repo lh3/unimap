@@ -13,14 +13,12 @@
 #include "unimap.h"
 #include "umpriv.h"
 #include "kvec.h"
-#include "khash.h"
+#include "khashl.h"
 
 #define idx_hash(a) ((a)>>1)
 #define idx_eq(a, b) ((a)>>1 == (b)>>1)
-KHASH_INIT(idx, uint64_t, uint64_t, 1, idx_hash, idx_eq)
-typedef khash_t(idx) idxhash_t;
-
-KHASH_MAP_INIT_STR(str, uint32_t)
+KHASHL_MAP_INIT(KH_LOCAL, idxhash_t, idx_h, uint64_t, uint64_t, idx_hash, idx_eq)
+KHASHL_MAP_INIT(KH_LOCAL, strhash_t, str_h, const char*, uint32_t, kh_hash_str, kh_eq_str)
 
 #define kroundup64(x) (--(x), (x)|=(x)>>1, (x)|=(x)>>2, (x)|=(x)>>4, (x)|=(x)>>8, (x)|=(x)>>16, (x)|=(x)>>32, ++(x))
 
@@ -57,12 +55,12 @@ void mm_idx_destroy(mm_idx_t *mi)
 {
 	uint32_t i;
 	if (mi == 0) return;
-	if (mi->h) kh_destroy(str, (khash_t(str)*)mi->h);
+	if (mi->h) str_h_destroy((strhash_t*)mi->h);
 	if (mi->B) {
 		for (i = 0; i < 1U<<mi->b; ++i) {
 			free(mi->B[i].p);
 			free(mi->B[i].a.a);
-			kh_destroy(idx, (idxhash_t*)mi->B[i].h);
+			idx_h_destroy((idxhash_t*)mi->B[i].h);
 		}
 	}
 	if (mi->I) {
@@ -86,7 +84,7 @@ const uint64_t *mm_idx_get(const mm_idx_t *mi, uint64_t minier, int *n)
 	idxhash_t *h = (idxhash_t*)b->h;
 	*n = 0;
 	if (h == 0) return 0;
-	k = kh_get(idx, h, minier>>mi->b<<1);
+	k = idx_h_get(h, minier>>mi->b<<1);
 	if (k == kh_end(h)) return 0;
 	if (kh_key(h, k)&1) { // special casing when there is only one k-mer
 		*n = 1;
@@ -123,14 +121,14 @@ void mm_idx_stat(const mm_idx_t *mi)
 
 int mm_idx_index_name(mm_idx_t *mi)
 {
-	khash_t(str) *h;
+	strhash_t *h;
 	uint32_t i;
 	int has_dup = 0, absent;
 	if (mi->h) return 0;
-	h = kh_init(str);
+	h = str_h_init();
 	for (i = 0; i < mi->n_seq; ++i) {
 		khint_t k;
-		k = kh_put(str, h, mi->seq[i].name, &absent);
+		k = str_h_put(h, mi->seq[i].name, &absent);
 		if (absent) kh_val(h, k) = i;
 		else has_dup = 1;
 	}
@@ -142,10 +140,10 @@ int mm_idx_index_name(mm_idx_t *mi)
 
 int mm_idx_name2id(const mm_idx_t *mi, const char *name)
 {
-	khash_t(str) *h = (khash_t(str)*)mi->h;
+	strhash_t *h = (strhash_t*)mi->h;
 	khint_t k;
 	if (h == 0) return -2;
-	k = kh_get(str, h, name);
+	k = str_h_get(h, name);
 	return k == kh_end(h)? -1 : kh_val(h, k);
 }
 
@@ -208,8 +206,8 @@ static void worker_post(void *g, long i, int tid)
 			n = 1;
 		} else ++n;
 	}
-	h = kh_init(idx);
-	kh_resize(idx, h, n_keys);
+	h = idx_h_init();
+	idx_h_resize(h, n_keys);
 	b->p = (uint64_t*)calloc(b->n, 8);
 
 	// create the hash table
@@ -218,7 +216,7 @@ static void worker_post(void *g, long i, int tid)
 			khint_t itr;
 			int absent;
 			mm128_t *p = &b->a.a[j-1];
-			itr = kh_put(idx, h, p->x>>8>>mi->b<<1, &absent);
+			itr = idx_h_put(h, p->x>>8>>mi->b<<1, &absent);
 			assert(absent && j == start_a + n);
 			if (n == 1) {
 				kh_key(h, itr) |= 1;
@@ -388,7 +386,7 @@ mm_idx_t *mm_idx_str(int w, int k, int is_hpc, int bucket_bits, int n, const cha
 	uint64_t sum_len = 0;
 	mm128_v a = {0,0,0};
 	mm_idx_t *mi;
-	khash_t(str) *h;
+	strhash_t *h;
 	int i, flag = 0;
 
 	if (n <= 0) return 0;
@@ -401,7 +399,7 @@ mm_idx_t *mm_idx_str(int w, int k, int is_hpc, int bucket_bits, int n, const cha
 	mi->n_seq = n;
 	mi->seq = (mm_idx_seq_t*)kcalloc(mi->km, n, sizeof(mm_idx_seq_t)); // ->seq is allocated from km
 	mi->S = (uint32_t*)calloc((sum_len + 7) / 8, 4);
-	mi->h = h = kh_init(str);
+	mi->h = h = str_h_init();
 	for (i = 0, sum_len = 0; i < n; ++i) {
 		const char *s = seq[i];
 		mm_idx_seq_t *p = &mi->seq[i];
@@ -410,7 +408,7 @@ mm_idx_t *mm_idx_str(int w, int k, int is_hpc, int bucket_bits, int n, const cha
 			int absent;
 			p->name = (char*)kmalloc(mi->km, strlen(name[i]) + 1);
 			strcpy(p->name, name[i]);
-			kh_put(str, h, p->name, &absent);
+			str_h_put(h, p->name, &absent);
 			assert(absent);
 		}
 		p->offset = sum_len;
@@ -461,7 +459,7 @@ void mm_idx_dump(FILE *fp, const mm_idx_t *mi)
 		mm_idx_bucket_t *b = &mi->B[i];
 		khint_t k;
 		idxhash_t *h = (idxhash_t*)b->h;
-		uint32_t size = h? h->size : 0;
+		uint32_t size = h? h->count : 0;
 		fwrite(&b->n, 4, 1, fp);
 		fwrite(b->p, 8, b->n, fp);
 		fwrite(&size, 4, 1, fp);
@@ -515,13 +513,13 @@ mm_idx_t *mm_idx_load(FILE *fp)
 		fread(b->p, 8, b->n, fp);
 		fread(&size, 4, 1, fp);
 		if (size == 0) continue;
-		b->h = h = kh_init(idx);
-		kh_resize(idx, h, size);
+		b->h = h = idx_h_init();
+		idx_h_resize(h, size);
 		for (j = 0; j < size; ++j) {
 			uint64_t x[2];
 			int absent;
 			fread(x, 8, 2, fp);
-			k = kh_put(idx, h, x[0], &absent);
+			k = idx_h_put(h, x[0], &absent);
 			assert(absent);
 			kh_val(h, k) = x[1];
 		}

@@ -7,7 +7,7 @@
 #include "kalloc.h"
 #include "umpriv.h"
 #include "bseq.h"
-#include "khash.h"
+#include "khashl.h"
 
 struct mm_tbuf_s {
 	void *km;
@@ -177,9 +177,9 @@ mm_reg1_t *mm_map_seq(const mm_idx_t *mi, int qlen, const char *seq, int *n_regs
 	*n_regs = 0;
 	if (opt->max_qlen > 0 && qlen > opt->max_qlen) return 0;
 
-	hash  = qname? __ac_X31_hash_string(qname) : 0;
-	hash ^= __ac_Wang_hash(qlen) + __ac_Wang_hash(opt->seed);
-	hash  = __ac_Wang_hash(hash);
+	hash  = qname? kh_hash_str(qname) : 0;
+	hash ^= kh_hash_uint32(qlen) + kh_hash_uint32(opt->seed);
+	hash  = kh_hash_uint32(hash);
 
 	collect_minimizers(b->km, opt, mi, qlen, seq, &mv);
 	a = collect_seed_hits(b->km, opt, opt->mid_occ, mi, qname, &mv, qlen, &n_a, &rep_len, &n_mini_pos, &mini_pos);

@@ -3,7 +3,7 @@
 #include <math.h>
 #include "umpriv.h"
 #include "kalloc.h"
-#include "khash.h"
+#include "khashl.h"
 
 static inline void mm_cal_fuzzy_len(mm_reg1_t *r, const mm128_t *a)
 {
