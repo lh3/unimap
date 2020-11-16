@@ -31,6 +31,7 @@
 
 #define MALLOC(type, len) ((type*)malloc((len) * sizeof(type)))
 #define CALLOC(type, len) ((type*)calloc((len), sizeof(type)))
+#define REALLOC(type, p, len) ((type*)realloc((p), (len) * sizeof(type)))
 
 #ifdef __cplusplus
 extern "C" {
@@ -89,6 +90,18 @@ void mm_split_rm_tmp(const char *prefix, int n_splits);
 void mm_err_puts(const char *str);
 void mm_err_fwrite(const void *p, size_t size, size_t nitems, FILE *fp);
 void mm_err_fread(void *p, size_t size, size_t nitems, FILE *fp);
+
+static inline uint64_t um_hash64(uint64_t key, uint64_t mask)
+{
+	key = (~key + (key << 21)) & mask; // key = (key << 21) - key - 1;
+	key = key ^ key >> 24;
+	key = ((key + (key << 3)) + (key << 8)) & mask; // key * 265
+	key = key ^ key >> 14;
+	key = ((key + (key << 2)) + (key << 4)) & mask; // key * 21
+	key = key ^ key >> 28;
+	key = (key + (key << 31)) & mask;
+	return key;
+}
 
 #ifdef __cplusplus
 }

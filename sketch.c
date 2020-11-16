@@ -25,18 +25,6 @@ unsigned char seq_nt4_table[256] = {
 	4, 4, 4, 4,  4, 4, 4, 4,  4, 4, 4, 4,  4, 4, 4, 4
 };
 
-static inline uint64_t hash64(uint64_t key, uint64_t mask)
-{
-	key = (~key + (key << 21)) & mask; // key = (key << 21) - key - 1;
-	key = key ^ key >> 24;
-	key = ((key + (key << 3)) + (key << 8)) & mask; // key * 265
-	key = key ^ key >> 14;
-	key = ((key + (key << 2)) + (key << 4)) & mask; // key * 21
-	key = key ^ key >> 28;
-	key = (key + (key << 31)) & mask;
-	return key;
-}
-
 typedef struct { // a simplified version of kdq
 	int front, count;
 	int a[32];
@@ -109,7 +97,7 @@ void mm_sketch(void *km, const char *str, int len, int w, int k, uint32_t rid, i
 			z = kmer[0] < kmer[1]? 0 : 1; // strand
 			++l;
 			if (l >= k && kmer_span < 256) {
-				info.x = hash64(kmer[z], mask) << 8 | kmer_span;
+				info.x = um_hash64(kmer[z], mask) << 8 | kmer_span;
 				info.y = (uint64_t)rid<<32 | (uint32_t)i<<1 | z;
 			}
 		} else l = 0, tq.count = tq.front = 0, kmer_span = 0;
