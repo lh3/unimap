@@ -67,7 +67,7 @@ typedef struct {
 	uint32_t *S;               // 4-bit packed sequence
 	struct mm_idx_bucket_s *B; // index (hidden)
 	struct mm_idx_intv_s *I;   // intervals (hidden)
-	void *km, *h;
+	void *km, *h, *dh;
 } mm_idx_t;
 
 // minimap2 alignment

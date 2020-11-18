@@ -55,6 +55,7 @@ void mm_idx_destroy(mm_idx_t *mi)
 {
 	uint32_t i;
 	if (mi == 0) return;
+	if (mi->dh) um_didx_destroy(mi->dh);
 	if (mi->h) str_h_destroy((strhash_t*)mi->h);
 	if (mi->B) {
 		for (i = 0; i < 1U<<mi->b; ++i) {
@@ -367,6 +368,7 @@ mm_idx_t *mm_idx_gen(mm_bseq_file_t *fp, int w, int k, int b, int flag, int mini
 	if (mm_verbose >= 3)
 		fprintf(stderr, "[M::%s::%.3f*%.2f] sorted minimizers\n", __func__, realtime() - mm_realtime0, cputime() / (realtime() - mm_realtime0));
 
+	pl.mi->dh = um_didx_gen(pl.mi, k, 0, mini_batch_size, n_threads);
 	return pl.mi;
 }
 

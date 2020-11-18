@@ -75,14 +75,12 @@ typedef struct { // global data structure for kt_pipeline()
 
 typedef struct { // data structure for each step in kt_pipeline()
 	pldat_t *p;
-	int n;
-	uint64_t sum_len, nk;
-	int *len;
-	char **seq;
+	int off, n;
+	uint64_t nk, sum_len;
 	cntbuf_t *buf;
 } stepdat_t;
 
-static void worker_for(void *data, long i, int tid) // callback for kt_for()
+static void worker_count(void *data, long i, int tid) // callback for kt_for()
 {
 	stepdat_t *s = (stepdat_t*)data;
 	cntbuf_t *b = &s->buf[i];
@@ -104,33 +102,41 @@ static void *worker_pipeline(void *data, int step, void *in) // callback for kt_
 		stepdat_t *s;
 		XCALLOC(s, 1);
 		s->p = p;
+		s->off = p->rid0;
 		for (i = p->rid0; i < (int)p->mi->n_seq; ++i) {
 			s->sum_len += p->mi->seq[i].len;
-			assert(p->mi->seq[i].len >= p->k);
-			s->nk += p->mi->seq[i].len - p->k + 1;
+			if (p->mi->seq[i].len >= p->k)
+				s->nk += p->mi->seq[i].len - p->k + 1;
+			++s->n;
 			if (s->sum_len >= p->mini_batch_size)
 				break;
 		}
-		s->n = i - p->rid0;
+		p->rid0 += s->n;
+		fprintf(stderr, "X\t%d\t%d\n", s->off, s->n);
 		if (s->sum_len == 0) free(s);
 		else return s;
 	} else if (step == 1) { // step 2: extract k-mers
-		stepdat_t *s = (stepdat_t*)in;
-		int i, n = 1<<p->h->p, m;
+		stepdat_t *s;
+		int i, n = 1<<p->h->p, m, n_seq = p->mi->n_seq;
+		XCALLOC(s, 1);
+		s->p = p;
+		for (i = 0; i < n_seq; ++i) {
+			assert(p->mi->seq[i].len >= p->k);
+			s->nk += p->mi->seq[i].len - p->k + 1;
+		}
 		XCALLOC(s->buf, n);
 		m = (int)(s->nk * 1.2 / n) + 1;
 		for (i = 0; i < n; ++i) {
 			s->buf[i].m = m;
 			XMALLOC(s->buf[i].a, m);
 		}
-		for (i = 0; i < s->n; ++i)
-			count_seq_buf(p->mi, s->buf, p->k, p->h->p, p->rid0 + i);
+		for (i = 0; i < n_seq; ++i)
+			count_seq_buf(p->mi, s->buf, p->k, p->h->p, i);
 		return s;
 	} else if (step == 2) { // step 3: insert k-mers to hash table
 		stepdat_t *s = (stepdat_t*)in;
 		int i, n = 1<<p->h->p;
-		kt_for(p->n_thread, worker_for, s, n);
-		p->rid0 += s->n;
+		kt_for(p->n_thread, worker_count, s, n);
 		for (i = 0; i < n; ++i) free(s->buf[i].a);
 		free(s->buf); free(s);
 	}
@@ -197,6 +203,8 @@ void *um_didx_gen(const mm_idx_t *mi, int k, int pre, uint64_t mini_batch_size, 
 	chx_shrink(pl.h, 2, KC_MAX, n_thread);
 	for (i = 0; i < 1<<pre; ++i)
 		pl.h->n_dup += kh_size(pl.h->h[i]);
+	fprintf(stderr, "[M::%s] # distinct k-mers: %ld; # non-unique k-mers: %ld\n",
+			__func__, (long)pl.h->n_tot, (long)pl.h->n_dup);
 	return pl.h;
 }
 
