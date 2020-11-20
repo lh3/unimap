@@ -63,11 +63,11 @@ yak_bf_t *yak_bf_init(int n_shift, int n_hashes)
 	yak_bf_t *b;
 	void *ptr = 0;
 	if (n_shift + YAK_BLK_SHIFT > 64 || n_shift < YAK_BLK_SHIFT) return 0;
-	b = calloc(1, sizeof(yak_bf_t));
+	YCALLOC(b, 1);
 	b->n_shift = n_shift;
 	b->n_hashes = n_hashes;
 	posix_memalign(&ptr, 1<<(YAK_BLK_SHIFT-3), 1ULL<<(n_shift-3));
-	b->b = ptr;
+	b->b = (uint8_t*)ptr;
 	bzero(b->b, 1ULL<<(n_shift-3));
 	return b;
 }
