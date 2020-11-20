@@ -1,7 +1,7 @@
 CFLAGS=		-g -Wall -O2 -Wc++-compat #-Wextra
 CPPFLAGS=	-DHAVE_KALLOC
 INCLUDES=
-OBJS=		kthread.o kalloc.o misc.o bseq.o sketch.o options.o index.o dupidx.o chain.o align.o hit.o map.o format.o esterr.o ksw2_ll_sse.o
+OBJS=		kthread.o kalloc.o misc.o bseq.o sketch.o options.o yak-count.o index.o chain.o align.o hit.o map.o format.o esterr.o ksw2_ll_sse.o
 PROG=		unimap
 LIBS=		-lm -lz -lpthread
 
@@ -97,7 +97,6 @@ depend:
 align.o: unimap.h umpriv.h bseq.h kseq.h ksw2.h kalloc.h
 bseq.o: bseq.h kvec.h kalloc.h kseq.h
 chain.o: unimap.h umpriv.h bseq.h kseq.h kalloc.h
-dupidx.o: umpriv.h unimap.h bseq.h kseq.h kthread.h khashl.h
 esterr.o: umpriv.h unimap.h bseq.h kseq.h
 format.o: kalloc.h umpriv.h unimap.h bseq.h kseq.h
 hit.o: umpriv.h unimap.h bseq.h kseq.h kalloc.h khashl.h
@@ -114,3 +113,4 @@ map.o: kthread.h kvec.h kalloc.h umpriv.h unimap.h bseq.h kseq.h khashl.h
 misc.o: umpriv.h unimap.h bseq.h kseq.h ksort.h
 options.o: umpriv.h unimap.h bseq.h kseq.h
 sketch.o: kvec.h kalloc.h umpriv.h unimap.h bseq.h kseq.h
+yak-count.o: umpriv.h unimap.h bseq.h kseq.h khashl.h kthread.h

@@ -256,7 +256,7 @@ static void mm_idx_post(mm_idx_t *mi, int n_threads)
 
 typedef struct {
 	int mini_batch_size;
-	uint64_t batch_size, sum_len;
+	uint64_t sum_len;
 	mm_bseq_file_t *fp;
 	mm_idx_t *mi;
 } pipeline_t;
@@ -282,7 +282,6 @@ static void *worker_pipeline(void *shared, int step, void *in)
     pipeline_t *p = (pipeline_t*)shared;
     if (step == 0) { // step 0: read sequences
         step_t *s;
-		if (p->sum_len > p->batch_size) return 0;
         s = (step_t*)calloc(1, sizeof(step_t));
 		s->seq = mm_bseq_read(p->fp, p->mini_batch_size, 0, 0, &s->n_seq); // read a mini-batch
 		if (s->seq) {
@@ -350,17 +349,22 @@ static void *worker_pipeline(void *shared, int step, void *in)
     return 0;
 }
 
-mm_idx_t *mm_idx_gen(mm_bseq_file_t *fp, int w, int k, int b, int flag, int mini_batch_size, int n_threads, uint64_t batch_size)
+mm_idx_t *um_idx_gen(const char *fn, int w, int k, int b, int flag, int mini_batch_size, int n_threads)
 {
+	void *dh = 0;
 	pipeline_t pl;
-	if (fp == 0 || mm_bseq_eof(fp)) return 0;
-	memset(&pl, 0, sizeof(pipeline_t));
-	pl.mini_batch_size = (uint64_t)mini_batch_size < batch_size? mini_batch_size : batch_size;
-	pl.batch_size = batch_size;
-	pl.fp = fp;
-	pl.mi = mm_idx_init(w, k, b, flag);
 
+	memset(&pl, 0, sizeof(pipeline_t));
+	pl.fp = mm_bseq_open(fn);
+	if (pl.fp == 0) return 0;
+	pl.mini_batch_size = mini_batch_size;
+
+	if (!(flag & MM_I_NO_DUPIDX))
+		dh = um_didx_gen(fn, k, b, mini_batch_size, n_threads);
+
+	pl.mi = mm_idx_init(w, k, b, flag);
 	kt_pipeline(n_threads < 3? n_threads : 3, worker_pipeline, &pl, 3);
+	mm_bseq_close(pl.fp);
 	if (mm_verbose >= 3)
 		fprintf(stderr, "[M::%s::%.3f*%.2f] collected minimizers\n", __func__, realtime() - mm_realtime0, cputime() / (realtime() - mm_realtime0));
 
@@ -368,69 +372,8 @@ mm_idx_t *mm_idx_gen(mm_bseq_file_t *fp, int w, int k, int b, int flag, int mini
 	if (mm_verbose >= 3)
 		fprintf(stderr, "[M::%s::%.3f*%.2f] sorted minimizers\n", __func__, realtime() - mm_realtime0, cputime() / (realtime() - mm_realtime0));
 
-	pl.mi->dh = um_didx_gen(pl.mi, k, 0, mini_batch_size, n_threads);
+	pl.mi->dh = dh;
 	return pl.mi;
-}
-
-mm_idx_t *mm_idx_build(const char *fn, int w, int k, int flag, int n_threads) // a simpler interface; deprecated
-{
-	mm_bseq_file_t *fp;
-	mm_idx_t *mi;
-	fp = mm_bseq_open(fn);
-	if (fp == 0) return 0;
-	mi = mm_idx_gen(fp, w, k, 14, flag, 1<<18, n_threads, UINT64_MAX);
-	mm_bseq_close(fp);
-	return mi;
-}
-
-mm_idx_t *mm_idx_str(int w, int k, int is_hpc, int bucket_bits, int n, const char **seq, const char **name)
-{
-	uint64_t sum_len = 0;
-	mm128_v a = {0,0,0};
-	mm_idx_t *mi;
-	strhash_t *h;
-	int i, flag = 0;
-
-	if (n <= 0) return 0;
-	for (i = 0; i < n; ++i) // get the total length
-		sum_len += strlen(seq[i]);
-	if (is_hpc) flag |= MM_I_HPC;
-	if (name == 0) flag |= MM_I_NO_NAME;
-	if (bucket_bits < 0) bucket_bits = 14;
-	mi = mm_idx_init(w, k, bucket_bits, flag);
-	mi->n_seq = n;
-	mi->seq = (mm_idx_seq_t*)kcalloc(mi->km, n, sizeof(mm_idx_seq_t)); // ->seq is allocated from km
-	mi->S = (uint32_t*)calloc((sum_len + 7) / 8, 4);
-	mi->h = h = str_h_init();
-	for (i = 0, sum_len = 0; i < n; ++i) {
-		const char *s = seq[i];
-		mm_idx_seq_t *p = &mi->seq[i];
-		uint32_t j;
-		if (name && name[i]) {
-			int absent;
-			p->name = (char*)kmalloc(mi->km, strlen(name[i]) + 1);
-			strcpy(p->name, name[i]);
-			str_h_put(h, p->name, &absent);
-			assert(absent);
-		}
-		p->offset = sum_len;
-		p->len = strlen(s);
-		p->is_alt = 0;
-		for (j = 0; j < p->len; ++j) {
-			int c = seq_nt4_table[(uint8_t)s[j]];
-			uint64_t o = sum_len + j;
-			mm_seq4_set(mi->S, o, c);
-		}
-		sum_len += p->len;
-		if (p->len > 0) {
-			a.n = 0;
-			mm_sketch(0, s, p->len, w, k, i, is_hpc, &a);
-			mm_idx_add(mi, a.n, a.a);
-		}
-	}
-	free(a.a);
-	mm_idx_post(mi, 1);
-	return mi;
 }
 
 /*************
@@ -555,53 +498,6 @@ int64_t mm_idx_is_idx(const char *fn)
 	}
 	close(fd);
 	return is_idx? off_end : 0;
-}
-
-mm_idx_reader_t *mm_idx_reader_open(const char *fn, const mm_idxopt_t *opt, const char *fn_out)
-{
-	int64_t is_idx;
-	mm_idx_reader_t *r;
-	is_idx = mm_idx_is_idx(fn);
-	if (is_idx < 0) return 0; // failed to open the index
-	r = (mm_idx_reader_t*)calloc(1, sizeof(mm_idx_reader_t));
-	r->is_idx = is_idx;
-	if (opt) r->opt = *opt;
-	else mm_idxopt_init(&r->opt);
-	if (r->is_idx) {
-		r->fp.idx = fopen(fn, "rb");
-		r->idx_size = is_idx;
-	} else r->fp.seq = mm_bseq_open(fn);
-	if (fn_out) r->fp_out = fopen(fn_out, "wb");
-	return r;
-}
-
-void mm_idx_reader_close(mm_idx_reader_t *r)
-{
-	if (r->is_idx) fclose(r->fp.idx);
-	else mm_bseq_close(r->fp.seq);
-	if (r->fp_out) fclose(r->fp_out);
-	free(r);
-}
-
-mm_idx_t *mm_idx_reader_read(mm_idx_reader_t *r, int n_threads)
-{
-	mm_idx_t *mi;
-	if (r->is_idx) {
-		mi = mm_idx_load(r->fp.idx);
-		if (mi && mm_verbose >= 2 && (mi->k != r->opt.k || mi->w != r->opt.w || (mi->flag&MM_I_HPC) != (r->opt.flag&MM_I_HPC)))
-			fprintf(stderr, "[WARNING]\033[1;31m Indexing parameters (-k, -w or -H) overridden by parameters used in the prebuilt index.\033[0m\n");
-	} else
-		mi = mm_idx_gen(r->fp.seq, r->opt.w, r->opt.k, r->opt.bucket_bits, r->opt.flag, r->opt.mini_batch_size, n_threads, r->opt.batch_size);
-	if (mi) {
-		if (r->fp_out) mm_idx_dump(r->fp_out, mi);
-		mi->index = r->n_parts++;
-	}
-	return mi;
-}
-
-int mm_idx_reader_eof(const mm_idx_reader_t *r) // TODO: in extremely rare cases, mm_bseq_eof() might not work
-{
-	return r->is_idx? (feof(r->fp.idx) || ftell(r->fp.idx) == r->idx_size) : mm_bseq_eof(r->fp.seq);
 }
 
 #include <ctype.h>

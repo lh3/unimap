@@ -104,14 +104,14 @@ static inline void yes_or_no(mm_mapopt_t *opt, int flag, int long_idx, const cha
 
 int main(int argc, char *argv[])
 {
-	const char *opt_str = "2aSDw:k:K:t:r:f:Vv:g:G:I:d:XT:s:x:Hcp:M:n:z:A:B:O:E:m:N:Qu:R:hF:LC:yYPo:";
+	const char *opt_str = "2aSDw:k:K:t:r:f:Vv:g:G:d:XT:s:x:Hcp:M:n:z:A:B:O:E:m:N:Qu:R:hF:LC:yYPo:W";
 	ketopt_t o = KETOPT_INIT;
 	mm_mapopt_t opt;
 	mm_idxopt_t ipt;
-	int i, c, n_threads = 3, n_parts, old_best_n = -1;
+	int i, c, ret, n_threads = 3, old_best_n = -1;
+	int64_t is_idx;
 	char *fnw = 0, *rg = 0, *junc_bed = 0, *s, *alt_list = 0;
 	FILE *fp_help = stderr;
-	mm_idx_reader_t *idx_rdr;
 	mm_idx_t *mi;
 
 	mm_verbose = 3;
@@ -164,11 +164,11 @@ int main(int argc, char *argv[])
 		else if (c == 'B') opt.b = atoi(o.arg);
 		else if (c == 's') opt.min_dp_max = atoi(o.arg);
 		else if (c == 'C') opt.noncan = atoi(o.arg);
-		else if (c == 'I') ipt.batch_size = mm_parse_num(o.arg);
 		else if (c == 'K') opt.mini_batch_size = mm_parse_num(o.arg);
 		else if (c == 'R') rg = o.arg;
 		else if (c == 'h') fp_help = stdout;
 		else if (c == '2') opt.flag |= MM_F_2_IO_THREADS;
+		else if (c == 'W') ipt.flag |= MM_I_NO_DUPIDX;
 		else if (c == 'o') {
 			if (strcmp(o.arg, "-") != 0) {
 				if (freopen(o.arg, "wb", stdout) == NULL) {
@@ -279,7 +279,6 @@ int main(int argc, char *argv[])
 		fprintf(fp_help, "    -H           use homopolymer-compressed k-mer (preferrable for PacBio)\n");
 		fprintf(fp_help, "    -k INT       k-mer size (no larger than 28) [%d]\n", ipt.k);
 		fprintf(fp_help, "    -w INT       minimizer window size [%d]\n", ipt.w);
-//		fprintf(fp_help, "    -I NUM       split index for every ~NUM input bases [1000G]\n");
 		fprintf(fp_help, "    -d FILE      dump index to FILE []\n");
 		fprintf(fp_help, "  Mapping:\n");
 		fprintf(fp_help, "    -f FLOAT     filter out top FLOAT fraction of repetitive minimizers [%g]\n", opt.mid_occ_frac);
@@ -323,55 +322,56 @@ int main(int argc, char *argv[])
 		return fp_help == stdout? 0 : 1;
 	}
 
-	idx_rdr = mm_idx_reader_open(argv[o.ind], &ipt, fnw);
-	if (idx_rdr == 0) {
-		fprintf(stderr, "[ERROR] failed to open file '%s': %s\n", argv[o.ind], strerror(errno));
-		return 1;
-	}
-	if (!idx_rdr->is_idx && fnw == 0 && argc - o.ind < 2) {
-		fprintf(stderr, "[ERROR] missing input: please specify a query file to map or option -d to keep the index\n");
-		mm_idx_reader_close(idx_rdr);
-		return 1;
-	}
 	if (opt.best_n == 0 && (opt.flag&MM_F_CIGAR) && mm_verbose >= 2)
 		fprintf(stderr, "[WARNING]\033[1;31m `-N 0' reduces alignment accuracy. Please use --secondary=no to suppress secondary alignments.\033[0m\n");
-	while ((mi = mm_idx_reader_read(idx_rdr, n_threads)) != 0) { // TODO: multi-part index is not supported in unimap
-		int ret;
-		if ((opt.flag & MM_F_CIGAR) && (mi->flag & MM_I_NO_SEQ)) {
-			fprintf(stderr, "[ERROR] the prebuilt index doesn't contain sequences.\n");
-			mm_idx_destroy(mi);
-			mm_idx_reader_close(idx_rdr);
+
+	is_idx = mm_idx_is_idx(argv[o.ind]);
+	if (is_idx < 0) {
+		fprintf(stderr, "[ERROR] failed to open file '%s': %s\n", argv[o.ind], strerror(errno));
+		return 1;
+	} else if (is_idx) {
+		FILE *fp;
+		fp = fopen(argv[o.ind], "rb");
+		mi = mm_idx_load(fp);
+		fclose(fp);
+	} else {
+		if (fnw == 0 && argc - o.ind < 2) {
+			fprintf(stderr, "[ERROR] missing input: please specify a query file to map or option -d to keep the index\n");
 			return 1;
 		}
-		if ((opt.flag & MM_F_OUT_SAM) && idx_rdr->n_parts == 1) {
-			assert(mm_idx_reader_eof(idx_rdr) != 0);
-			ret = mm_write_sam_hdr(mi, rg, MM_VERSION, argc, argv);
-			if (ret != 0) {
-				mm_idx_destroy(mi);
-				mm_idx_reader_close(idx_rdr);
-				return 1;
-			}
-		}
-		if (mm_verbose >= 3)
-			fprintf(stderr, "[M::%s::%.3f*%.2f] loaded/built the index for %d target sequence(s)\n",
-					__func__, realtime() - mm_realtime0, cputime() / (realtime() - mm_realtime0), mi->n_seq);
-		if (argc != o.ind + 1) mm_mapopt_update(&opt, mi);
-		if (mm_verbose >= 3) mm_idx_stat(mi);
-		if (junc_bed) mm_idx_bed_read(mi, junc_bed, 1);
-		if (alt_list) mm_idx_alt_read(mi, alt_list);
-		ret = 0;
-		for (i = o.ind + 1; i < argc; ++i) {
-			ret = mm_map_file(mi, argv[i], &opt, n_threads);
-			if (ret < 0) break;
-		}
+		mi = um_idx_gen(argv[o.ind], ipt.w, ipt.k, ipt.bucket_bits, ipt.flag, ipt.mini_batch_size, n_threads);
+	}
+
+	if ((opt.flag & MM_F_CIGAR) && (mi->flag & MM_I_NO_SEQ)) {
+		fprintf(stderr, "[ERROR] the prebuilt index doesn't contain sequences.\n");
 		mm_idx_destroy(mi);
-		if (ret < 0) {
-			fprintf(stderr, "ERROR: failed to map the query file\n");
-			exit(EXIT_FAILURE);
+		return 1;
+	}
+	if (opt.flag & MM_F_OUT_SAM) {
+		ret = mm_write_sam_hdr(mi, rg, MM_VERSION, argc, argv);
+		if (ret != 0) {
+			mm_idx_destroy(mi);
+			return 1;
 		}
 	}
-	n_parts = idx_rdr->n_parts;
-	mm_idx_reader_close(idx_rdr);
+	if (mm_verbose >= 3)
+		fprintf(stderr, "[M::%s::%.3f*%.2f] loaded/built the index for %d target sequence(s)\n",
+				__func__, realtime() - mm_realtime0, cputime() / (realtime() - mm_realtime0), mi->n_seq);
+	if (argc != o.ind + 1) mm_mapopt_update(&opt, mi);
+	if (mm_verbose >= 3) mm_idx_stat(mi);
+	if (junc_bed) mm_idx_bed_read(mi, junc_bed, 1);
+	if (alt_list) mm_idx_alt_read(mi, alt_list);
+
+	ret = 0;
+	for (i = o.ind + 1; i < argc; ++i) {
+		ret = mm_map_file(mi, argv[i], &opt, n_threads);
+		if (ret < 0) break;
+	}
+	mm_idx_destroy(mi);
+	if (ret < 0) {
+		fprintf(stderr, "ERROR: failed to map the query file\n");
+		exit(EXIT_FAILURE);
+	}
 
 	if (fflush(stdout) == EOF) {
 		perror("[ERROR] failed to write the results");

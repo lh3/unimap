@@ -91,7 +91,7 @@ void mm_err_puts(const char *str);
 void mm_err_fwrite(const void *p, size_t size, size_t nitems, FILE *fp);
 void mm_err_fread(void *p, size_t size, size_t nitems, FILE *fp);
 
-void *um_didx_gen(const mm_idx_t *mi, int k, int pre, uint64_t mini_batch_size, int n_thread);
+void *um_didx_gen(const char *fn, int k, int pre, uint64_t mini_batch_size, int n_thread);
 void um_didx_destroy(void *dh);
 
 static inline uint64_t um_hash64(uint64_t key, uint64_t mask)
