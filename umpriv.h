@@ -51,7 +51,7 @@ void radix_sort_128x(mm128_t *beg, mm128_t *end);
 void radix_sort_64(uint64_t *beg, uint64_t *end);
 uint32_t ks_ksmall_uint32_t(size_t n, uint32_t arr[], size_t kk);
 
-void mm_sketch(void *km, const char *str, int len, int w, int k, uint32_t rid, int is_hpc, mm128_v *p);
+void mm_sketch(void *km, const char *str, int len, int w, int k, uint32_t rid, int is_hpc, mm128_v *p, const void *di);
 
 int mm_write_sam_hdr(const mm_idx_t *mi, const char *rg, const char *ver, int argc, char *argv[]);
 void mm_write_paf(kstring_t *s, const mm_idx_t *mi, const mm_bseq1_t *t, const mm_reg1_t *r, void *km, int opt_flag, int rep_len);
@@ -93,6 +93,7 @@ void mm_err_fread(void *p, size_t size, size_t nitems, FILE *fp);
 
 void *um_didx_gen(const char *fn, int k, int pre, uint64_t mini_batch_size, int n_thread);
 void um_didx_destroy(void *dh);
+int um_didx_get(const void *h_, uint64_t x);
 
 static inline uint64_t um_hash64(uint64_t key, uint64_t mask)
 {
@@ -104,6 +105,20 @@ static inline uint64_t um_hash64(uint64_t key, uint64_t mask)
 	key = key ^ key >> 28;
 	key = (key + (key << 31)) & mask;
 	return key;
+}
+
+static const char um_LogTable256[256] = {
+#define LT(n) n, n, n, n, n, n, n, n, n, n, n, n, n, n, n, n
+	-1, 0, 1, 1, 2, 2, 2, 2, 3, 3, 3, 3, 3, 3, 3, 3,
+	LT(4), LT(5), LT(5), LT(6), LT(6), LT(6), LT(6),
+	LT(7), LT(7), LT(7), LT(7), LT(7), LT(7), LT(7), LT(7)
+};
+
+static inline int um_ilog2_32(uint32_t v)
+{
+	uint32_t t, tt;
+	if ((tt = v>>16)) return (t = tt>>8) ? 24 + um_LogTable256[t] : 16 + um_LogTable256[tt];
+	return (t = v>>8) ? 8 + um_LogTable256[t] : um_LogTable256[v];
 }
 
 #ifdef __cplusplus

@@ -5,7 +5,7 @@
 void mm_idxopt_init(mm_idxopt_t *opt)
 {
 	memset(opt, 0, sizeof(mm_idxopt_t));
-	opt->k = 15, opt->w = 10, opt->flag = 0;
+	opt->k = 21, opt->w = 11, opt->flag = 0;
 	opt->bucket_bits = 14;
 	opt->mini_batch_size = 50000000;
 }

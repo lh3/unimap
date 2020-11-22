@@ -137,6 +137,15 @@ void yak_ch_destroy(yak_ch_t *h)
 	free(h->h); free(h);
 }
 
+int yak_ch_get(const yak_ch_t *h, uint64_t x)
+{
+	int mask = (1<<h->pre) - 1;
+	yak_ht_t *g = h->h[x&mask].h;
+	khint_t k;
+	k = yak_ht_get(g, x >> h->pre << YAK_COUNTER_BITS);
+	return k == kh_end(g)? -1 : kh_key(g, k)&YAK_MAX_COUNT;
+}
+
 int yak_ch_insert_list(yak_ch_t *h, int create_new, int n, const uint64_t *a)
 {
 	int j, mask = (1<<h->pre) - 1, n_ins = 0;
@@ -164,15 +173,6 @@ int yak_ch_insert_list(yak_ch_t *h, int create_new, int n, const uint64_t *a)
 		}
 	}
 	return n_ins;
-}
-
-int yak_ch_get(const yak_ch_t *h, uint64_t x)
-{
-	int mask = (1<<h->pre) - 1;
-	yak_ht_t *g = h->h[x&mask].h;
-	khint_t k;
-	k = yak_ht_get(g, x >> h->pre << YAK_COUNTER_BITS);
-	return k == kh_end(g)? -1 : kh_key(g, k)&YAK_MAX_COUNT;
 }
 
 /*** Clear all counts to 0 ***/
@@ -210,9 +210,11 @@ static void worker_shrink(void *data, long i, int tid) // callback for kt_for()
 	yak_ht_resize(f, kh_size(g));
 	for (k = 0; k < kh_end(g); ++k) {
 		if (kh_exist(g, k)) {
-			int absent, c = kh_key(g, k) & YAK_MAX_COUNT;
-			if (c >= a->min && c <= a->max)
-				yak_ht_put(f, kh_key(g, k), &absent);
+			int absent, c_log2, c = kh_key(g, k) & YAK_MAX_COUNT;
+			if (c >= a->min && c <= a->max) {
+				c_log2 = um_ilog2_32(c);
+				yak_ht_put(f, kh_key(g, k) >> YAK_COUNTER_BITS << YAK_COUNTER_BITS | c_log2, &absent);
+			}
 		}
 	}
 	yak_ht_destroy(g);
@@ -389,13 +391,13 @@ yak_ch_t *yak_count_file(const char *fn1, const char *fn2, const yak_copt_t *opt
 {
 	yak_ch_t *h;
 	h = yak_count(fn1, opt, 0); // if bloom filter is in use, this gets approximate counts
-	fprintf(stderr, "[M::%s] round 1: %ld distinct k-mers\n", __func__, (long)h->tot);
+	fprintf(stderr, "[M::%s::%.3f*%.2f] round 1: %ld distinct k-mers\n", __func__, realtime() - mm_realtime0, cputime() / (realtime() - mm_realtime0), (long)h->tot);
 	if (opt->bf_shift > 0) { // bloom filter is in use
 		yak_ch_destroy_bf(h); // deallocate bloom filter
 		yak_ch_clear(h, opt->n_thread); // set counts to 0
 		h = yak_count(fn2? fn2 : fn1, opt, h); // count again
 		yak_ch_shrink(h, 2, YAK_MAX_COUNT, opt->n_thread); // drop singleton k-mers caused by false positives in bloom filter
-		fprintf(stderr, "[M::%s] round 2: %ld distinct k-mers\n", __func__, (long)h->tot);
+		fprintf(stderr, "[M::%s::%.3f*%.2f] round 2: %ld distinct k-mers\n", __func__, realtime() - mm_realtime0, cputime() / (realtime() - mm_realtime0), (long)h->tot);
 	}
 	return h;
 }
@@ -418,4 +420,15 @@ void *um_didx_gen(const char *fn, int k, int pre, uint64_t mini_batch_size, int 
 void um_didx_destroy(void *h)
 {
 	yak_ch_destroy((yak_ch_t*)h);
+}
+
+int um_didx_get(const void *h_, uint64_t x)
+{
+	const yak_ch_t *h = (const yak_ch_t*)h_;
+	int mask = (1<<h->pre) - 1;
+	yak_ht_t *g = h->h[x&mask].h;
+	khint_t k;
+	k = yak_ht_get(g, x >> h->pre << YAK_COUNTER_BITS);
+	if (k != kh_end(g)) fprintf(stderr, "%d\n", (int)(kh_key(g, k)&YAK_MAX_COUNT));
+	return k == kh_end(g)? 0 : kh_key(g, k)&YAK_MAX_COUNT;
 }

@@ -334,7 +334,7 @@ static void *worker_pipeline(void *shared, int step, void *in)
 		for (i = 0; i < s->n_seq; ++i) {
 			mm_bseq1_t *t = &s->seq[i];
 			if (t->l_seq > 0)
-				mm_sketch(0, t->seq, t->l_seq, p->mi->w, p->mi->k, t->rid, p->mi->flag&MM_I_HPC, &s->a);
+				mm_sketch(0, t->seq, t->l_seq, p->mi->w, p->mi->k, t->rid, p->mi->flag&MM_I_HPC, &s->a, p->mi->dh);
 			else if (mm_verbose >= 2)
 				fprintf(stderr, "[WARNING] the length database sequence '%s' is 0\n", t->name);
 			free(t->seq); free(t->name);
@@ -363,6 +363,7 @@ mm_idx_t *um_idx_gen(const char *fn, int w, int k, int b, int flag, int mini_bat
 		dh = um_didx_gen(fn, k, b, mini_batch_size, n_threads);
 
 	pl.mi = mm_idx_init(w, k, b, flag);
+	pl.mi->dh = dh;
 	kt_pipeline(n_threads < 3? n_threads : 3, worker_pipeline, &pl, 3);
 	mm_bseq_close(pl.fp);
 	if (mm_verbose >= 3)
@@ -371,8 +372,6 @@ mm_idx_t *um_idx_gen(const char *fn, int w, int k, int b, int flag, int mini_bat
 	mm_idx_post(pl.mi, n_threads);
 	if (mm_verbose >= 3)
 		fprintf(stderr, "[M::%s::%.3f*%.2f] sorted minimizers\n", __func__, realtime() - mm_realtime0, cputime() / (realtime() - mm_realtime0));
-
-	pl.mi->dh = dh;
 	return pl.mi;
 }
 

@@ -45,6 +45,12 @@ static inline int tq_shift(tiny_queue_t *q)
 	return x;
 }
 
+static inline int mzcmp(const mm128_t *a, const mm128_t *b) // TODO: we only need <=
+{
+	int32_t ya = a->y>>32, yb = b->y>>32;
+	return ya < yb? -1 : ya > yb? 1 : ((a->x > b->x) - (a->x < b->x));
+}
+
 /**
  * Find symmetric (w,k)-minimizers on a DNA sequence
  *
@@ -62,7 +68,7 @@ static inline int tq_shift(tiny_queue_t *q)
  *               and strand indicates whether the minimizer comes from the top or the bottom strand.
  *               Callers may want to set "p->n = 0"; otherwise results are appended to p
  */
-void mm_sketch(void *km, const char *str, int len, int w, int k, uint32_t rid, int is_hpc, mm128_v *p)
+void mm_sketch(void *km, const char *str, int len, int w, int k, uint32_t rid, int is_hpc, mm128_v *p, const void *di)
 {
 	uint64_t shift1 = 2 * (k - 1), mask = (1ULL<<2*k) - 1, kmer[2] = {0,0};
 	int i, j, l, buf_pos, min_pos, kmer_span = 0, n0 = p->n;
@@ -98,7 +104,8 @@ void mm_sketch(void *km, const char *str, int len, int w, int k, uint32_t rid, i
 			++l;
 			if (l >= k && kmer_span < 256) {
 				info.x = um_hash64(kmer[z], mask) << 8 | kmer_span;
-				info.y = (uint64_t)rid<<32 | (uint32_t)i<<1 | z;
+				info.y = (uint32_t)i<<1 | z;
+				if (di) info.y |= (uint64_t)um_didx_get(di, info.x >> 8) << 32;
 			}
 		} else l = 0, tq.count = tq.front = 0, kmer_span = 0;
 		buf[buf_pos] = info; // need to do this here as appropriate buf_pos and buf[buf_pos] are needed below
@@ -114,9 +121,9 @@ void mm_sketch(void *km, const char *str, int len, int w, int k, uint32_t rid, i
 		} else if (buf_pos == min_pos) { // old min has moved outside the window
 			if (l >= w + k - 1 && min.x != UINT64_MAX) kv_push(mm128_t, km, *p, min);
 			for (j = buf_pos + 1, min.x = UINT64_MAX; j < w; ++j) // the two loops are necessary when there are identical k-mers
-				if (min.x >= buf[j].x) min = buf[j], min_pos = j; // >= is important s.t. min is always the closest k-mer
+				if (mzcmp(&min, &buf[j]) >= 0) min = buf[j], min_pos = j; // >= is important s.t. min is always the closest k-mer
 			for (j = 0; j <= buf_pos; ++j)
-				if (min.x >= buf[j].x) min = buf[j], min_pos = j;
+				if (mzcmp(&min, &buf[j]) >= 0) min = buf[j], min_pos = j;
 			if (l >= w + k - 1 && min.x != UINT64_MAX) { // write identical k-mers
 				for (j = buf_pos + 1; j < w; ++j) // these two loops make sure the output is sorted
 					if (min.x == buf[j].x && min.y != buf[j].y) kv_push(mm128_t, km, *p, buf[j]);
@@ -151,4 +158,6 @@ void mm_sketch(void *km, const char *str, int len, int w, int k, uint32_t rid, i
 			p->n = j;
 		}
 	}
+	for (i = n0; i < (int)p->n; ++i)
+		p->a[i].y = p->a[i].y << 32 >> 32 | (uint64_t)rid << 32;
 }

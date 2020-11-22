@@ -5,20 +5,6 @@
 #include "umpriv.h"
 #include "kalloc.h"
 
-static const char LogTable256[256] = {
-#define LT(n) n, n, n, n, n, n, n, n, n, n, n, n, n, n, n, n
-	-1, 0, 1, 1, 2, 2, 2, 2, 3, 3, 3, 3, 3, 3, 3, 3,
-	LT(4), LT(5), LT(5), LT(6), LT(6), LT(6), LT(6),
-	LT(7), LT(7), LT(7), LT(7), LT(7), LT(7), LT(7), LT(7)
-};
-
-static inline int ilog2_32(uint32_t v)
-{
-	uint32_t t, tt;
-	if ((tt = v>>16)) return (t = tt>>8) ? 24 + LogTable256[t] : 16 + LogTable256[tt];
-	return (t = v>>8) ? 8 + LogTable256[t] : LogTable256[v];
-}
-
 mm128_t *mm_chain_dp(int max_dist_x, int max_dist_y, int bw, int max_skip, int max_iter, int min_cnt, int min_sc, float gap_scale, int is_cdna, int64_t n, mm128_t *a, int *n_u_, uint64_t **_u, void *km)
 { // TODO: make sure this works when n has more than 32 bits
 	int32_t k, *f, *p, *t, *v, n_u, n_v;
@@ -58,7 +44,7 @@ mm128_t *mm_chain_dp(int max_dist_x, int max_dist_y, int bw, int max_skip, int m
 			if (dd > bw) continue;
 			min_d = dq < dr? dq : dr;
 			sc = min_d > q_span? q_span : dq < dr? dq : dr;
-			log_dd = dd? ilog2_32(dd) : 0;
+			log_dd = dd? um_ilog2_32(dd) : 0;
 			gap_cost = 0;
 			if (is_cdna) {
 				int c_log, c_lin;
