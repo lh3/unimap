@@ -429,6 +429,6 @@ int um_didx_get(const void *h_, uint64_t x)
 	yak_ht_t *g = h->h[x&mask].h;
 	khint_t k;
 	k = yak_ht_get(g, x >> h->pre << YAK_COUNTER_BITS);
-	if (k != kh_end(g)) fprintf(stderr, "%d\n", (int)(kh_key(g, k)&YAK_MAX_COUNT));
+	//if (k != kh_end(g)) fprintf(stderr, "%llx\t%d\n", x, (int)(kh_key(g, k)&YAK_MAX_COUNT));
 	return k == kh_end(g)? 0 : kh_key(g, k)&YAK_MAX_COUNT;
 }

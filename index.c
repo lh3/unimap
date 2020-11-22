@@ -255,16 +255,17 @@ static void mm_idx_post(mm_idx_t *mi, int n_threads)
 #include "bseq.h"
 
 typedef struct {
-	int mini_batch_size;
+	int n_threads, mini_batch_size;
 	uint64_t sum_len;
 	mm_bseq_file_t *fp;
 	mm_idx_t *mi;
+	mm128_v *a;
 } pipeline_t;
 
 typedef struct {
+	pipeline_t *p;
     int n_seq;
 	mm_bseq1_t *seq;
-	mm128_v a;
 } step_t;
 
 static void mm_idx_add(mm_idx_t *mi, int n, const mm128_t *a)
@@ -276,6 +277,18 @@ static void mm_idx_add(mm_idx_t *mi, int n, const mm128_t *a)
 	}
 }
 
+static void worker_sketch(void *d, long i, int tid)
+{
+	step_t *s = (step_t*)d;
+	pipeline_t *p = s->p;
+	mm_bseq1_t *t = &s->seq[i];
+	if (t->l_seq > 0)
+		mm_sketch(0, t->seq, t->l_seq, p->mi->w, p->mi->k, t->rid, p->mi->flag&MM_I_HPC, &p->a[tid], p->mi->dh);
+	else if (mm_verbose >= 2)
+		fprintf(stderr, "[WARNING] the length database sequence '%s' is 0\n", t->name);
+	free(t->seq); free(t->name);
+}
+
 static void *worker_pipeline(void *shared, int step, void *in)
 {
 	int i;
@@ -283,6 +296,7 @@ static void *worker_pipeline(void *shared, int step, void *in)
     if (step == 0) { // step 0: read sequences
         step_t *s;
         s = (step_t*)calloc(1, sizeof(step_t));
+		s->p = p;
 		s->seq = mm_bseq_read(p->fp, p->mini_batch_size, 0, 0, &s->n_seq); // read a mini-batch
 		if (s->seq) {
 			uint32_t old_m, m;
@@ -331,20 +345,15 @@ static void *worker_pipeline(void *shared, int step, void *in)
 		} else free(s);
     } else if (step == 1) { // step 1: compute sketch
         step_t *s = (step_t*)in;
-		for (i = 0; i < s->n_seq; ++i) {
-			mm_bseq1_t *t = &s->seq[i];
-			if (t->l_seq > 0)
-				mm_sketch(0, t->seq, t->l_seq, p->mi->w, p->mi->k, t->rid, p->mi->flag&MM_I_HPC, &s->a, p->mi->dh);
-			else if (mm_verbose >= 2)
-				fprintf(stderr, "[WARNING] the length database sequence '%s' is 0\n", t->name);
-			free(t->seq); free(t->name);
-		}
+		for (i = 0; i < p->n_threads; ++i) p->a[i].n = 0;
+		kt_for(p->n_threads, worker_sketch, in, s->n_seq);
 		free(s->seq); s->seq = 0;
 		return s;
     } else if (step == 2) { // dispatch sketch to buckets
         step_t *s = (step_t*)in;
-		mm_idx_add(p->mi, s->a.n, s->a.a);
-		kfree(0, s->a.a); free(s);
+		for (i = 0; i < p->n_threads; ++i)
+			mm_idx_add(p->mi, p->a[i].n, p->a[i].a);
+		free(s);
 	}
     return 0;
 }
@@ -353,18 +362,23 @@ mm_idx_t *um_idx_gen(const char *fn, int w, int k, int b, int flag, int mini_bat
 {
 	void *dh = 0;
 	pipeline_t pl;
+	int i;
 
 	memset(&pl, 0, sizeof(pipeline_t));
 	pl.fp = mm_bseq_open(fn);
 	if (pl.fp == 0) return 0;
 	pl.mini_batch_size = mini_batch_size;
+	pl.n_threads = n_threads;
 
 	if (!(flag & MM_I_NO_DUPIDX))
 		dh = um_didx_gen(fn, k, b, mini_batch_size, n_threads);
 
 	pl.mi = mm_idx_init(w, k, b, flag);
 	pl.mi->dh = dh;
+	pl.a = CALLOC(mm128_v, n_threads);
 	kt_pipeline(n_threads < 3? n_threads : 3, worker_pipeline, &pl, 3);
+	for (i = 0; i < n_threads; ++i) free(pl.a[i].a);
+	free(pl.a);
 	mm_bseq_close(pl.fp);
 	if (mm_verbose >= 3)
 		fprintf(stderr, "[M::%s::%.3f*%.2f] collected minimizers\n", __func__, realtime() - mm_realtime0, cputime() / (realtime() - mm_realtime0));
