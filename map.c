@@ -197,7 +197,18 @@ mm_reg1_t *mm_map_seq(const mm_idx_t *mi, int qlen, const char *seq, int *n_regs
 		max_chain_gap_ref = opt->max_gap_ref; // always honor mm_mapopt_t::max_gap_ref if set
 	else max_chain_gap_ref = opt->max_gap;
 
-	a = mm_chain_dp(max_chain_gap_ref, max_chain_gap_qry, opt->bw, opt->max_chain_skip, opt->max_chain_iter, opt->min_cnt, opt->min_chain_score, opt->chain_gap_scale, is_splice, n_a, a, &n_regs0, &u, b->km);
+	if (opt->chain_algo == 0) {
+		a = mm_chain_dp(max_chain_gap_ref, max_chain_gap_qry, opt->bw, opt->max_chain_skip, opt->max_chain_iter, opt->min_cnt, opt->min_chain_score,
+						opt->chain_gap_scale, is_splice, n_a, a, &n_regs0, &u, b->km);
+	} else if (opt->chain_algo == 1 && opt->rmq_inner_dist > 0) {
+		a = mg_lchain_rmq(opt->max_gap, opt->rmq_inner_dist, opt->max_chain_skip, opt->rmq_size_cap, opt->min_cnt, opt->min_chain_score,
+						  opt->chain_gap_scale * .2, 0.0, n_a, a, &n_regs0, &u, b->km);
+	} else if (opt->chain_algo == 2) {
+		a = mg_lchain_dp(max_chain_gap_ref, max_chain_gap_qry, opt->bw, opt->max_chain_skip, opt->max_chain_iter, opt->min_cnt, opt->min_chain_score,
+						 opt->chain_gap_scale * .2, 0.0, is_splice, n_a, a, &n_regs0, &u, b->km);
+	} else {
+		abort();
+	}
 
 	b->rep_len = rep_len;
 

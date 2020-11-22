@@ -26,6 +26,9 @@ void mm_mapopt_init(mm_mapopt_t *opt)
 	opt->max_chain_skip = 25;
 	opt->max_chain_iter = 5000;
 	opt->chain_gap_scale = 1.0f;
+	opt->chain_algo = 0; // the minimap2 algorithm
+	opt->rmq_inner_dist = 1000;
+	opt->rmq_size_cap = 100000;
 
 	opt->mask_level = 0.5f;
 	opt->mask_len = INT_MAX;

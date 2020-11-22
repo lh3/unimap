@@ -1,7 +1,7 @@
 CFLAGS=		-g -Wall -O2 -Wc++-compat #-Wextra
 CPPFLAGS=	-DHAVE_KALLOC
 INCLUDES=
-OBJS=		kthread.o kalloc.o misc.o bseq.o sketch.o options.o yak-count.o index.o chain.o align.o hit.o map.o format.o esterr.o ksw2_ll_sse.o
+OBJS=		kthread.o kalloc.o misc.o bseq.o sketch.o options.o yak-count.o index.o chain.o lchain.o align.o hit.o map.o format.o esterr.o ksw2_ll_sse.o
 PROG=		unimap
 LIBS=		-lm -lz -lpthread
 
