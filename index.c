@@ -358,7 +358,7 @@ static void *worker_pipeline(void *shared, int step, void *in)
     return 0;
 }
 
-mm_idx_t *um_idx_gen(const char *fn, int w, int k, int b, int flag, int mini_batch_size, int n_threads)
+mm_idx_t *um_idx_gen(const char *fn, int w, int k, int b, int flag, int bf_bits, int mini_batch_size, int n_threads)
 {
 	void *dh = 0;
 	pipeline_t pl;
@@ -371,7 +371,7 @@ mm_idx_t *um_idx_gen(const char *fn, int w, int k, int b, int flag, int mini_bat
 	pl.n_threads = n_threads;
 
 	if (!(flag & MM_I_NO_DUPIDX))
-		dh = um_didx_gen(fn, k, b, mini_batch_size, n_threads);
+		dh = um_didx_gen(fn, k, b, bf_bits, mini_batch_size, n_threads);
 
 	pl.mi = mm_idx_init(w, k, b, flag);
 	pl.mi->dh = dh;
@@ -431,6 +431,7 @@ void mm_idx_dump(FILE *fp, const mm_idx_t *mi)
 	}
 	if (!(mi->flag & MM_I_NO_SEQ))
 		fwrite(mi->S, 4, (sum_len + 7) / 8, fp);
+	if (mi->dh) um_didx_dump(fp, mi->dh);
 	fflush(fp);
 }
 
@@ -486,6 +487,7 @@ mm_idx_t *mm_idx_load(FILE *fp)
 		mi->S = (uint32_t*)malloc((sum_len + 7) / 8 * 4);
 		fread(mi->S, 4, (sum_len + 7) / 8, fp);
 	}
+	mi->dh = um_didx_load(fp);
 	return mi;
 }
 

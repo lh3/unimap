@@ -28,7 +28,7 @@ static ko_longopt_t long_options[] = {
 	{ "mb-size",        ko_required_argument, 'K' },
 	{ "seed",           ko_required_argument, 302 },
 	{ "no-kalloc",      ko_no_argument,       303 },
-	{ "print-qname",    ko_no_argument,       304 },
+	{ "dbg-qname",      ko_no_argument,       304 },
 	{ "no-self",        ko_no_argument,       'D' },
 	{ "print-seeds",    ko_no_argument,       306 },
 	{ "max-chain-skip", ko_required_argument, 307 },
@@ -169,6 +169,7 @@ int main(int argc, char *argv[])
 		else if (c == 'h') fp_help = stdout;
 		else if (c == '2') opt.flag |= MM_F_2_IO_THREADS;
 		else if (c == 'W') ipt.flag |= MM_I_NO_DUPIDX;
+		else if (c == 'F') ipt.bf_bits = atoi(o.arg);
 		else if (c == 'o') {
 			if (strcmp(o.arg, "-") != 0) {
 				if (freopen(o.arg, "wb", stdout) == NULL) {
@@ -279,6 +280,7 @@ int main(int argc, char *argv[])
 		fprintf(fp_help, "    -H           use homopolymer-compressed k-mer (preferrable for PacBio)\n");
 		fprintf(fp_help, "    -k INT       k-mer size (no larger than 28) [%d]\n", ipt.k);
 		fprintf(fp_help, "    -w INT       minimizer window size [%d]\n", ipt.w);
+		fprintf(fp_help, "    -F INT       number of bits for bloom filter, 0 to disable [%d]\n", ipt.bf_bits);
 		fprintf(fp_help, "    -d FILE      dump index to FILE []\n");
 		fprintf(fp_help, "  Mapping:\n");
 		fprintf(fp_help, "    -f FLOAT     filter out top FLOAT fraction of repetitive minimizers [%g]\n", opt.mid_occ_frac);
@@ -339,7 +341,16 @@ int main(int argc, char *argv[])
 			fprintf(stderr, "[ERROR] missing input: please specify a query file to map or option -d to keep the index\n");
 			return 1;
 		}
-		mi = um_idx_gen(argv[o.ind], ipt.w, ipt.k, ipt.bucket_bits, ipt.flag, ipt.mini_batch_size, n_threads);
+		mi = um_idx_gen(argv[o.ind], ipt.w, ipt.k, ipt.bucket_bits, ipt.flag, ipt.bf_bits, ipt.mini_batch_size, n_threads);
+		if (fnw) {
+			FILE *fp;
+			if ((fp = fopen(fnw, "wb")) == 0) {
+				fprintf(stderr, "[ERROR] failed to write the index to file '%s'\n", fnw);
+				return 1;
+			}
+			mm_idx_dump(fp, mi);
+			fclose(fp);
+		}
 	}
 
 	if ((opt.flag & MM_F_CIGAR) && (mi->flag & MM_I_NO_SEQ)) {

@@ -99,7 +99,7 @@ typedef struct {
 
 // indexing and mapping options
 typedef struct {
-	short k, w, flag, bucket_bits;
+	short k, w, flag, bucket_bits, bf_bits;
 	int64_t mini_batch_size;
 } mm_idxopt_t;
 
@@ -194,7 +194,7 @@ void mm_mapopt_update(mm_mapopt_t *opt, const mm_idx_t *mi);
 
 void mm_mapopt_max_intron_len(mm_mapopt_t *opt, int max_intron_len);
 
-mm_idx_t *um_idx_gen(const char *fn, int w, int k, int b, int flag, int mini_batch_size, int n_threads);
+mm_idx_t *um_idx_gen(const char *fn, int w, int k, int b, int flag, int bf_bits, int mini_batch_size, int n_threads);
 
 /**
  * Check whether the file contains a minimap2 index
