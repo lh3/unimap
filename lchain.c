@@ -273,8 +273,10 @@ mm128_t *mg_lchain_rmq(int max_dist, int max_dist_inner, int max_chn_skip, int c
 		if ((q = krmq_rmq(lc_elem, root, &lo, &hi)) != 0) {
 			int32_t sc, exact, n_skip = 0;
 			int64_t j = q->i;
+			assert(q->y >= lo.y && q->y <= hi.y);
 			sc = f[j] + comput_sc_simple(&a[i], &a[j], chn_pen_gap, chn_pen_skip, &exact);
 			if (sc > max_f) max_f = sc, max_j = j;
+			if (a[i].x == a[j].x) fprintf(stderr, "here: (%d,%d)[%ld] <=> (%d,%d)[%ld]\n", (int)a[i].x, (int)a[i].y, (long)i, (int)a[j].x, (int)a[j].y, (long)j);
 			if (!exact && root_inner) {
 				lc_elem_t *lo, *hi;
 				s.y = (int32_t)a[i].y, s.i = 0;
@@ -317,7 +319,6 @@ mm128_t *mg_lchain_rmq(int max_dist, int max_dist_inner, int max_chn_skip, int c
 		v[i] = max_j >= 0 && v[max_j] > max_f? v[max_j] : max_f; // v[] keeps the peak score up to i; f[] is the score ending at i, not always the peak
 		if (mmax_f < max_f) mmax_f = max_f;
 		if (max_rmq_size < krmq_size(head, root)) max_rmq_size = krmq_size(head, root);
-		//fprintf(stderr, "XX\t%d\t%d\n", krmq_size(head, root), krmq_size(head, root_inner));
 	}
 	km_destroy(mem_mp);
 

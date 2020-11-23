@@ -95,10 +95,10 @@ static void mm_fix_cigar(mm_reg1_t *r, const uint8_t *qseq, const uint8_t *tseq,
 	uint32_t k;
 	*qshift = *tshift = 0;
 	if (p->n_cigar <= 1) return;
-	if (r->qs == 128464361 && r->qe == 128464486) {
+	if (r->rs == 128464361 && r->re == 128464486) {
 		for (k = 0; k < p->n_cigar; ++k)
 			fprintf(stderr, "%d%c", p->cigar[k]>>4, "MIDSH"[p->cigar[k]&0xf]);
-		fprintf(stderr, "\n");
+		fprintf(stderr, "\ninv=%d\n", r->inv);
 	}
 	for (k = 0; k < p->n_cigar; ++k) { // indel left alignment
 		uint32_t op = p->cigar[k]&0xf, len = p->cigar[k]>>4;
@@ -670,10 +670,14 @@ static void mm_align1(void *km, const mm_mapopt_t *opt, const mm_idx_t *mi, int 
 	re1 = rs, qe1 = qs;
 	assert(qs1 >= 0 && rs1 >= 0);
 
+	fprintf(stderr, "Z\t%d:%d\t%d:%d\t%d:%d\tn_cigar=%d\nZ\t", qs1, rs1, qs, rs, qe, re, r->p->n_cigar);
+	int k; for (k = 0; k < r->p->n_cigar; ++k) fprintf(stderr, "%d%c", r->p->cigar[k]>>4, "MID"[r->p->cigar[k]&0xf]); fputc('\n', stderr);
+
 	for (i = 1; i < cnt1; ++i) { // gap filling
 		if ((a[as1+i].y & (MM_SEED_IGNORE|MM_SEED_TANDEM)) && i != cnt1 - 1) continue;
 		mm_adjust_minier(mi, qseq0, &a[as1 + i], &re, &qe);
 		re1 = re, qe1 = qe;
+		fprintf(stderr, "Z\t(%d,%d) <=> (%d,%d), %d:%d, %d:%d\n", qs, qe, rs, re, (int32_t)a[as1+i].x, (int32_t)a[as1+i].y, (int32_t)a[as1+i-1].x, (int32_t)a[as1+i-1].y);
 		if (i == cnt1 - 1 || (a[as1+i].y&MM_SEED_LONG_JOIN) || (qe - qs >= opt->min_ksw_len && re - rs >= opt->min_ksw_len)) {
 			int j, bw1 = bw, zdrop_code;
 			if (a[as1+i].y & MM_SEED_LONG_JOIN)
@@ -697,6 +701,7 @@ static void mm_align1(void *km, const mm_mapopt_t *opt, const mm_idx_t *mi, int 
 				dropped = 1;
 				if (j < 0) j = 0;
 				r->p->dp_score += ez->max;
+				fprintf(stderr, "Z\tmax_t=%d,max_q=%d,qs=%d,rs=%d\n", ez->max_t + 1, ez->max_q + 1, qs, rs);
 				re1 = rs + (ez->max_t + 1);
 				qe1 = qs + (ez->max_q + 1);
 				if (cnt1 - (j + 1) >= opt->min_cnt) {
@@ -708,6 +713,8 @@ static void mm_align1(void *km, const mm_mapopt_t *opt, const mm_idx_t *mi, int 
 			rs = re, qs = qe;
 		}
 	}
+
+	fprintf(stderr, "dropped=%d,qe=%d,re=%d\n", dropped, qe1, re1);
 
 	if (!dropped && qe < qe0 && re < re0) { // right extension
 		qseq = &qseq0[rev][qe];
