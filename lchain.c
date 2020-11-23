@@ -110,11 +110,11 @@ static inline int32_t comput_sc(const mm128_t *ai, const mm128_t *aj, int32_t ma
 	if (dd || dg > q_span) {
 		float lin_pen, log_pen;
 		lin_pen = chn_pen_gap * (float)dd + chn_pen_skip * (float)dg;
-		log_pen = dd >= 2? mg_log2(dd) : 0.0f; // mg_log2() only works for dd>=2
+		log_pen = dd >= 1? mg_log2(dd + 1) : 0.0f; // mg_log2() only works for dd>=2
 		if (is_cdna) {
 			if (dr > dq) sc -= (int)(lin_pen < log_pen? lin_pen : log_pen); // deletion or jump between paired ends
-			else sc -= (int)(lin_pen + log_pen);
-		} else sc -= (int)(lin_pen + log_pen);
+			else sc -= (int)(lin_pen + .5f * log_pen);
+		} else sc -= (int)(lin_pen + .5f * log_pen);
 	}
 	return sc;
 }
@@ -217,8 +217,8 @@ static inline int32_t comput_sc_simple(const mm128_t *ai, const mm128_t *aj, flo
 	if (dd || dq > q_span) {
 		float lin_pen, log_pen;
 		lin_pen = chn_pen_gap * (float)dd + chn_pen_skip * (float)dg;
-		log_pen = dd >= 2? mg_log2(dd) : 0.0f; // mg_log2() only works for dd>=2
-		sc -= (int)(lin_pen + log_pen);
+		log_pen = dd >= 1? mg_log2(dd + 1) : 0.0f; // mg_log2() only works for dd>=2
+		sc -= (int)(lin_pen + .5f * log_pen);
 	}
 	return sc;
 }

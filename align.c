@@ -95,6 +95,11 @@ static void mm_fix_cigar(mm_reg1_t *r, const uint8_t *qseq, const uint8_t *tseq,
 	uint32_t k;
 	*qshift = *tshift = 0;
 	if (p->n_cigar <= 1) return;
+	if (r->qs == 128464361 && r->qe == 128464486) {
+		for (k = 0; k < p->n_cigar; ++k)
+			fprintf(stderr, "%d%c", p->cigar[k]>>4, "MIDSH"[p->cigar[k]&0xf]);
+		fprintf(stderr, "\n");
+	}
 	for (k = 0; k < p->n_cigar; ++k) { // indel left alignment
 		uint32_t op = p->cigar[k]&0xf, len = p->cigar[k]>>4;
 		if (len == 0) to_shrink = 1;
@@ -121,6 +126,12 @@ static void mm_fix_cigar(mm_reg1_t *r, const uint8_t *qseq, const uint8_t *tseq,
 		} else if (op == 3) {
 			toff += len;
 		}
+	}
+	if (!(qoff == r->qe - r->qs && toff == r->re - r->rs)) {
+		fprintf(stderr, "X\t%d == %d\t%d == %d\trid=%d,qs=%d,qe=%d; rs=%d,re=%d\n", qoff, r->qe - r->qs, toff, r->re - r->rs, r->rid, r->qs, r->qe, r->rs, r->re);
+		for (k = 0; k < p->n_cigar; ++k)
+			fprintf(stderr, "%d%c", p->cigar[k]>>4, "MIDSH"[p->cigar[k]&0xf]);
+		fprintf(stderr, "\n");
 	}
 	assert(qoff == r->qe - r->qs && toff == r->re - r->rs);
 	for (k = 0; k < p->n_cigar - 2; ++k) { // fix CIGAR like 5I6D7I
