@@ -276,7 +276,6 @@ mm128_t *mg_lchain_rmq(int max_dist, int max_dist_inner, int max_chn_skip, int c
 			assert(q->y >= lo.y && q->y <= hi.y);
 			sc = f[j] + comput_sc_simple(&a[i], &a[j], chn_pen_gap, chn_pen_skip, &exact);
 			if (sc > max_f) max_f = sc, max_j = j;
-			if (a[i].x == a[j].x) fprintf(stderr, "here: (%d,%d)[%ld] <=> (%d,%d)[%ld]\n", (int)a[i].x, (int)a[i].y, (long)i, (int)a[j].x, (int)a[j].y, (long)j);
 			if (!exact && root_inner) {
 				lc_elem_t *lo, *hi;
 				s.y = (int32_t)a[i].y, s.i = 0;
