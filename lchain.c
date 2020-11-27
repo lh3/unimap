@@ -205,11 +205,11 @@ KRMQ_INIT(lc_elem, lc_elem_t, head, lc_elem_cmp, lc_elem_lt2)
 
 KALLOC_POOL_INIT(rmq, lc_elem_t)
 
-static inline int32_t comput_sc_simple(const mm128_t *ai, const mm128_t *aj, float chn_pen_gap, float chn_pen_skip, int32_t *exact)
+static inline int32_t comput_sc_simple(const mm128_t *ai, const mm128_t *aj, float chn_pen_gap, float chn_pen_skip, int32_t *exact, int32_t *width)
 {
 	int32_t dq = (int32_t)ai->y - (int32_t)aj->y, dr, dd, dg, q_span, sc;
 	dr = (int32_t)(ai->x - aj->x);
-	dd = dr > dq? dr - dq : dq - dr;
+	*width = dd = dr > dq? dr - dq : dq - dr;
 	dg = dr < dq? dr : dq;
 	q_span = aj->y>>32&0xff;
 	sc = q_span < dg? q_span : dg;
@@ -223,8 +223,8 @@ static inline int32_t comput_sc_simple(const mm128_t *ai, const mm128_t *aj, flo
 	return sc;
 }
 
-mm128_t *mg_lchain_rmq(int max_dist, int max_dist_inner, int max_chn_skip, int cap_rmq_size, int min_cnt, int min_sc, float chn_pen_gap, float chn_pen_skip, int64_t n, mm128_t *a,
-					   int *n_u_, uint64_t **_u, void *km)
+mm128_t *mg_lchain_rmq(int max_dist, int max_dist_inner, int bw, int max_chn_skip, int cap_rmq_size, int min_cnt, int min_sc, float chn_pen_gap, float chn_pen_skip,
+					   int64_t n, mm128_t *a, int *n_u_, uint64_t **_u, void *km)
 {
 	int32_t *f,*t, *v, n_u, n_v, mmax_f = 0, max_rmq_size = 0;
 	int64_t *p, i, i0, st = 0, st_inner = 0, n_iter = 0;
@@ -286,33 +286,35 @@ mm128_t *mg_lchain_rmq(int max_dist, int max_dist_inner, int max_chn_skip, int c
 		lo.i = INT32_MAX, lo.y = (int32_t)a[i].y - max_dist;
 		hi.i = 0, hi.y = (int32_t)a[i].y;
 		if ((q = krmq_rmq(lc_elem, root, &lo, &hi)) != 0) {
-			int32_t sc, exact, n_skip = 0;
+			int32_t sc, exact, width, n_skip = 0;
 			int64_t j = q->i;
 			assert(q->y >= lo.y && q->y <= hi.y);
-			sc = f[j] + comput_sc_simple(&a[i], &a[j], chn_pen_gap, chn_pen_skip, &exact);
-			if (sc > max_f) max_f = sc, max_j = j;
+			sc = f[j] + comput_sc_simple(&a[i], &a[j], chn_pen_gap, chn_pen_skip, &exact, &width);
+			if (width <= bw && sc > max_f) max_f = sc, max_j = j;
 			if (!exact && root_inner && (int32_t)a[i].y > 0) {
 				lc_elem_t *lo, *hi;
 				s.y = (int32_t)a[i].y - 1, s.i = n;
 				krmq_interval(lc_elem, root_inner, &s, &lo, &hi);
 				if (lo) {
 					const lc_elem_t *q;
-					int32_t n_rmq_iter = 0;
+					int32_t width, n_rmq_iter = 0;
 					krmq_itr_t(lc_elem) itr;
 					krmq_itr_find(lc_elem, root_inner, lo, &itr);
 					while ((q = krmq_at(&itr)) != 0) {
 						if (q->y < (int32_t)a[i].y - max_dist_inner) break;
 						++n_rmq_iter;
 						j = q->i;
-						sc = f[j] + comput_sc_simple(&a[i], &a[j], chn_pen_gap, chn_pen_skip, 0);
-						if (sc > max_f) {
-							max_f = sc, max_j = j;
-							if (n_skip > 0) --n_skip;
-						} else if (t[j] == (int32_t)i) {
-							if (++n_skip > max_chn_skip)
-								break;
+						sc = f[j] + comput_sc_simple(&a[i], &a[j], chn_pen_gap, chn_pen_skip, 0, &width);
+						if (width <= bw) {
+							if (sc > max_f) {
+								max_f = sc, max_j = j;
+								if (n_skip > 0) --n_skip;
+							} else if (t[j] == (int32_t)i) {
+								if (++n_skip > max_chn_skip)
+									break;
+							}
+							if (p[j] >= 0) t[p[j]] = i;
 						}
-						if (p[j] >= 0) t[p[j]] = i;
 						if (!krmq_itr_prev(lc_elem, &itr)) break;
 					}
 					n_iter += n_rmq_iter;
