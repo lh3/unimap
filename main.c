@@ -36,7 +36,6 @@ static ko_longopt_t long_options[] = {
 	{ "print-aln-seq",  ko_no_argument,       309 },
 	{ "splice",         ko_no_argument,       310 },
 	{ "cost-non-gt-ag", ko_required_argument, 'C' },
-	{ "no-long-join",   ko_no_argument,       312 },
 	{ "secondary",      ko_required_argument, 315 },
 	{ "cs",             ko_optional_argument, 316 },
 	{ "end-bonus",      ko_required_argument, 317 },
@@ -51,7 +50,6 @@ static ko_longopt_t long_options[] = {
 	{ "max-clip-ratio", ko_required_argument, 327 },
 	{ "min-occ-floor",  ko_required_argument, 328 },
 	{ "MD",             ko_no_argument,       329 },
-	{ "lj-min-ratio",   ko_required_argument, 330 },
 	{ "score-N",        ko_required_argument, 331 },
 	{ "eqx",            ko_no_argument,       332 },
 	{ "paf-no-hit",     ko_no_argument,       333 },
@@ -152,7 +150,7 @@ int main(int argc, char *argv[])
 		else if (c == 'c') opt.flag |= MM_F_OUT_CG | MM_F_CIGAR;
 		else if (c == 'D') opt.flag |= MM_F_NO_DIAG;
 		else if (c == 'P') opt.flag |= MM_F_ALL_CHAINS;
-		else if (c == 'X') opt.flag |= MM_F_ALL_CHAINS | MM_F_NO_DIAG | MM_F_NO_DUAL | MM_F_NO_LJOIN; // -D -P --no-long-join --dual=no
+		else if (c == 'X') opt.flag |= MM_F_ALL_CHAINS | MM_F_NO_DIAG | MM_F_NO_DUAL; // -D -P --dual=no
 		else if (c == 'a') opt.flag |= MM_F_OUT_SAM | MM_F_CIGAR;
 		else if (c == 'Q') opt.flag |= MM_F_NO_QUAL;
 		else if (c == 'Y') opt.flag |= MM_F_SOFTCLIP;
@@ -189,7 +187,6 @@ int main(int argc, char *argv[])
 		else if (c == 308) opt.min_ksw_len = atoi(o.arg); // --min-dp-len
 		else if (c == 309) mm_dbg_flag |= MM_DBG_PRINT_QNAME | MM_DBG_PRINT_ALN_SEQ, n_threads = 1; // --print-aln-seq
 		else if (c == 310) opt.flag |= MM_F_SPLICE; // --splice
-		else if (c == 312) opt.flag |= MM_F_NO_LJOIN; // --no-long-join
 		else if (c == 317) opt.end_bonus = atoi(o.arg); // --end-bonus
 		else if (c == 318) opt.flag |= MM_F_INDEPEND_SEG; // --no-pairing
 		else if (c == 320) ipt.flag |= MM_I_NO_SEQ; // --idx-no-seq
@@ -199,7 +196,6 @@ int main(int argc, char *argv[])
 		else if (c == 327) opt.max_clip_ratio = atof(o.arg); // --max-clip-ratio
 		else if (c == 328) opt.min_mid_occ = atoi(o.arg); // --min-occ-floor
 		else if (c == 329) opt.flag |= MM_F_OUT_MD; // --MD
-		else if (c == 330) opt.min_join_flank_ratio = atof(o.arg); // --lj-min-ratio
 		else if (c == 331) opt.sc_ambi = atoi(o.arg); // --score-N
 		else if (c == 332) opt.flag |= MM_F_EQX; // --eqx
 		else if (c == 333) opt.flag |= MM_F_PAF_NO_HIT; // --paf-no-hit
@@ -319,7 +315,6 @@ int main(int argc, char *argv[])
 		fprintf(fp_help, "  Preset:\n");
 		fprintf(fp_help, "    -x STR       preset (always applied before other options; see unimap.1 for details) []\n");
 		fprintf(fp_help, "                 - map-pb/map-ont - PacBio/Nanopore vs reference mapping\n");
-		fprintf(fp_help, "                 - ava-pb/ava-ont - PacBio/Nanopore read overlap\n");
 		fprintf(fp_help, "                 - asm5/asm10/asm20 - asm-to-ref mapping, for ~0.1/1/5%% sequence divergence\n");
 		fprintf(fp_help, "                 - splice/splice:hq - long-read/Pacbio-CCS spliced alignment\n");
 		fprintf(fp_help, "\nSee `man ./unimap.1' for detailed description of these and other advanced command-line options.\n");

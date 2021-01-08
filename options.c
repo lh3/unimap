@@ -35,11 +35,6 @@ void mm_mapopt_init(mm_mapopt_t *opt)
 	opt->pri_ratio = 0.8f;
 	opt->best_n = 5;
 
-	opt->max_join_long = 20000;
-	opt->max_join_short = 2000;
-	opt->min_join_flank_sc = 1000;
-	opt->min_join_flank_ratio = 0.5f;
-
 	opt->alt_drop = 0.15f;
 
 	opt->a = 2, opt->b = 4, opt->q = 4, opt->e = 2, opt->q2 = 24, opt->e2 = 1;
@@ -51,6 +46,7 @@ void mm_mapopt_init(mm_mapopt_t *opt)
 	opt->anchor_ext_len = 20, opt->anchor_ext_shift = 6;
 	opt->max_clip_ratio = 1.0f;
 	opt->mini_batch_size = 500000000;
+	opt->max_sw_mat = 100000000;
 
 	opt->pe_ori = 0; // FF
 	opt->pe_bonus = 33;
@@ -79,15 +75,6 @@ int mm_set_opt(const char *preset, mm_idxopt_t *io, mm_mapopt_t *mo)
 	if (preset == 0) {
 		mm_idxopt_init(io);
 		mm_mapopt_init(mo);
-	} else if (strcmp(preset, "ava-ont") == 0) {
-		io->flag = 0, io->k = 15, io->w = 5;
-		mo->flag |= MM_F_ALL_CHAINS | MM_F_NO_DIAG | MM_F_NO_DUAL | MM_F_NO_LJOIN;
-		mo->min_chain_score = 100, mo->pri_ratio = 0.0f, mo->max_gap = 10000, mo->max_chain_skip = 25;
-		mo->bw = 2000;
-	} else if (strcmp(preset, "ava-pb") == 0) {
-		io->flag |= MM_I_HPC, io->k = 19, io->w = 5;
-		mo->flag |= MM_F_ALL_CHAINS | MM_F_NO_DIAG | MM_F_NO_DUAL | MM_F_NO_LJOIN;
-		mo->min_chain_score = 100, mo->pri_ratio = 0.0f, mo->max_gap = 10000, mo->max_chain_skip = 25;
 	} else if (strcmp(preset, "map10k") == 0 || strcmp(preset, "map-pb") == 0) {
 		io->flag |= MM_I_HPC, io->k = 19;
 	} else if (strcmp(preset, "map-ont") == 0) {

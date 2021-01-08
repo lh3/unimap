@@ -136,6 +136,8 @@ mm128_t *mg_lchain_dp(int max_dist_x, int max_dist_y, int bw, int max_skip, int 
 
 	if (_u) *_u = 0, *n_u_ = 0;
 	if (n == 0 || a == 0) return 0;
+	if (max_dist_x < bw) max_dist_x = bw;
+	if (max_dist_y < bw && !is_cdna) max_dist_y = bw;
 	KMALLOC(km, p, n);
 	KMALLOC(km, f, n);
 	KMALLOC(km, v, n);
@@ -235,6 +237,7 @@ mm128_t *mg_lchain_rmq(int max_dist, int max_dist_inner, int bw, int max_chn_ski
 
 	if (_u) *_u = 0, *n_u_ = 0;
 	if (n == 0 || a == 0) return 0;
+	if (max_dist < bw) max_dist = bw;
 	if (max_dist_inner <= 0 || max_dist_inner >= max_dist) max_dist_inner = 0;
 	KMALLOC(km, p, n);
 	KMALLOC(km, f, n);

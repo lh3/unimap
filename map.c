@@ -145,8 +145,6 @@ static void chain_post(const mm_mapopt_t *opt, int max_chain_gap_ref, const mm_i
 	if (!(opt->flag & MM_F_ALL_CHAINS)) { // don't choose primary mapping(s)
 		mm_set_parent(km, opt->mask_level, opt->mask_len, *n_regs, regs, opt->a * 2 + opt->b, opt->flag&MM_F_HARD_MLEVEL, opt->alt_drop);
 		mm_select_sub(km, opt->pri_ratio, mi->k*2, opt->best_n, n_regs, regs);
-		if (!(opt->flag & (MM_F_SPLICE|MM_F_NO_LJOIN))) // long join not working well without primary chains
-			mm_join_long(km, opt, qlen, n_regs, regs, a);
 	}
 }
 
