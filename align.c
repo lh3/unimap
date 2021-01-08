@@ -288,7 +288,6 @@ static void mm_update_extra(mm_reg1_t *r, const uint8_t *qseq, const uint8_t *ts
 static void mm_append_cigar(mm_reg1_t *r, uint32_t n_cigar, uint32_t *cigar) // TODO: this calls the libc realloc()
 {
 	mm_extra_t *p;
-	if (n_cigar == 0) return;
 	if (r->p == 0) {
 		uint32_t capacity = n_cigar + sizeof(mm_extra_t)/4;
 		kroundup32(capacity);
@@ -299,6 +298,7 @@ static void mm_append_cigar(mm_reg1_t *r, uint32_t n_cigar, uint32_t *cigar) // 
 		kroundup32(r->p->capacity);
 		r->p = (mm_extra_t*)realloc(r->p, r->p->capacity * 4);
 	}
+	if (n_cigar == 0) return;
 	p = r->p;
 	if (p->n_cigar > 0 && (p->cigar[p->n_cigar-1]&0xf) == (cigar[0]&0xf)) { // same CIGAR op at the boundary
 		p->cigar[p->n_cigar-1] += cigar[0]>>4<<4;
@@ -685,6 +685,7 @@ static void mm_align1(void *km, const mm_mapopt_t *opt, const mm_idx_t *mi, int 
 						break;
 				dropped = 1;
 				if (j < 0) j = 0;
+				if (r->p == 0) mm_append_cigar(r, 0, 0);
 				r->p->dp_score += ez->max;
 				re1 = rs + (ez->max_t + 1);
 				qe1 = qs + (ez->max_q + 1);
