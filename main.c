@@ -35,6 +35,7 @@ static ko_longopt_t long_options[] = {
 	{ "min-dp-len",     ko_required_argument, 308 },
 	{ "print-aln-seq",  ko_no_argument,       309 },
 	{ "splice",         ko_no_argument,       310 },
+	{ "no-rmq",         ko_no_argument,       311 },
 	{ "cost-non-gt-ag", ko_required_argument, 'C' },
 	{ "secondary",      ko_required_argument, 315 },
 	{ "cs",             ko_optional_argument, 316 },
@@ -65,7 +66,6 @@ static ko_longopt_t long_options[] = {
 	{ "alt",            ko_required_argument, 344 },
 	{ "alt-drop",       ko_required_argument, 345 },
 	{ "mask-len",       ko_required_argument, 346 },
-	{ "calgo",          ko_required_argument, 347 },
 	{ "help",           ko_no_argument,       'h' },
 	{ "max-intron-len", ko_required_argument, 'G' },
 	{ "version",        ko_no_argument,       'V' },
@@ -186,7 +186,8 @@ int main(int argc, char *argv[])
 		else if (c == 339) opt.max_chain_iter = atoi(o.arg); // --max-chain-iter
 		else if (c == 308) opt.min_ksw_len = atoi(o.arg); // --min-dp-len
 		else if (c == 309) mm_dbg_flag |= MM_DBG_PRINT_QNAME | MM_DBG_PRINT_ALN_SEQ, n_threads = 1; // --print-aln-seq
-		else if (c == 310) opt.flag |= MM_F_SPLICE; // --splice
+		else if (c == 310) opt.flag |= MM_F_SPLICE | MM_F_NO_RMQ; // --splice
+		else if (c == 311) opt.flag |= MM_F_NO_RMQ; // --no-rmq
 		else if (c == 317) opt.end_bonus = atoi(o.arg); // --end-bonus
 		else if (c == 318) opt.flag |= MM_F_INDEPEND_SEG; // --no-pairing
 		else if (c == 320) ipt.flag |= MM_I_NO_SEQ; // --idx-no-seq
@@ -210,7 +211,6 @@ int main(int argc, char *argv[])
 		else if (c == 344) alt_list = o.arg; // --alt
 		else if (c == 345) opt.alt_drop = atof(o.arg); // --alt-drop
 		else if (c == 346) opt.mask_len = mm_parse_num(o.arg); // --mask-len
-		else if (c == 347) opt.chain_algo = atof(o.arg); // --calgo
 		else if (c == 315) { // --secondary
 			yes_or_no(&opt, MM_F_NO_PRINT_2ND, o.longidx, o.arg, 0);
 		} else if (c == 316) { // --cs

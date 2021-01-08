@@ -15,6 +15,7 @@
 #define MM_F_SPLICE        0x080 // splice mode
 #define MM_F_SPLICE_FOR    0x100 // match GT-AG
 #define MM_F_SPLICE_REV    0x200 // match CT-AC, the reverse complement of GT-AG
+#define MM_F_NO_RMQ        0x400
 #define MM_F_OUT_CS_LONG   0x800
 #define MM_F_NO_PRINT_2ND  0x4000
 #define MM_F_2_IO_THREADS  0x8000
@@ -115,7 +116,6 @@ typedef struct {
 	int min_cnt;         // min number of minimizers on each chain
 	int min_chain_score; // min chaining score
 	float chain_gap_scale;
-	int chain_algo;
 	int rmq_size_cap, rmq_inner_dist;
 
 	float mask_level;
