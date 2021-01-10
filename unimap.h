@@ -61,6 +61,7 @@ typedef struct {
 
 typedef struct {
 	int32_t b, w, k, flag;
+	int32_t adap_occ, adap_dist;
 	uint32_t n_seq;            // number of reference sequences
 	int32_t index;
 	int32_t n_alt;
@@ -100,17 +101,16 @@ typedef struct {
 // indexing and mapping options
 typedef struct {
 	short k, w, flag, bucket_bits, bf_bits;
+	int32_t adap_occ, adap_dist;
 	int64_t mini_batch_size;
 } mm_idxopt_t;
 
 typedef struct {
-	int64_t flag;    // see MM_F_* macros
+	int64_t flag;   // see MM_F_* macros
 	int seed;
-	int sdust_thres; // score threshold for SDUST; 0 to disable
+	int max_qlen;   // max query length
 
-	int max_qlen;    // max query length
-
-	int bw;          // bandwidth
+	int bw;         // bandwidth
 	int max_gap, max_gap_ref; // break a chain if there are no minimizers in a max_gap window
 	int max_chain_skip, max_chain_iter;
 	int min_cnt;         // min number of minimizers on each chain
@@ -121,27 +121,26 @@ typedef struct {
 	float mask_level;
 	int mask_len;
 	float pri_ratio;
-	int best_n;      // top best_n chains are subjected to DP alignment
+	int best_n;     // top best_n chains are subjected to DP alignment
 
 	float alt_drop;
 
 	int a, b, q, e, q2, e2; // matching score, mismatch, gap-open and gap-ext penalties
-	int sc_ambi; // score when one or both bases are "N"
-	int noncan;      // cost of non-canonical splicing sites
+	int sc_ambi;    // score when one or both bases are "N"
+	int noncan;     // cost of non-canonical splicing sites
 	int junc_bonus;
 	int zdrop, zdrop_inv;   // break alignment if alignment score drops too fast along the diagonal
 	int end_bonus;
-	int min_dp_max;  // drop an alignment if the score of the max scoring segment is below this threshold
+	int min_dp_max; // drop an alignment if the score of the max scoring segment is below this threshold
 	int min_ksw_len;
 	int anchor_ext_len, anchor_ext_shift;
 	float max_clip_ratio; // drop an alignment if BOTH ends are clipped above this ratio
 
 	int pe_ori, pe_bonus;
 
-	float mid_occ_frac;  // only used by mm_mapopt_update(); see below
-	int32_t min_mid_occ;
-	int32_t mid_occ;     // ignore seeds with occurrences above this threshold
-	int32_t max_occ;
+	float mid_occ_frac;   // only used by mm_mapopt_update(); see below
+	int32_t mid_occ_cap;
+	int32_t mid_occ;      // ignore seeds with occurrences above this threshold
 	int64_t mini_batch_size; // size of a batch of query bases to process in parallel
 	int64_t max_sw_mat;
 } mm_mapopt_t;
@@ -191,7 +190,7 @@ void mm_mapopt_update(mm_mapopt_t *opt, const mm_idx_t *mi);
 
 void mm_mapopt_max_intron_len(mm_mapopt_t *opt, int max_intron_len);
 
-mm_idx_t *um_idx_gen(const char *fn, int w, int k, int b, int flag, int bf_bits, int mini_batch_size, int n_threads);
+mm_idx_t *um_idx_gen(const char *fn, int w, int k, int b, int flag, int bf_bits, int mini_batch_size, int adap_occ, int adap_dist, int n_threads);
 
 /**
  * Check whether the file contains a minimap2 index

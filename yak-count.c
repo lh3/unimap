@@ -212,7 +212,7 @@ static void worker_shrink(void *data, long i, int tid) // callback for kt_for()
 		if (kh_exist(g, k)) {
 			int absent, c_log2, c = kh_key(g, k) & YAK_MAX_COUNT;
 			if (c >= a->min && c <= a->max) {
-				c_log2 = um_ilog2_32(c);
+				c_log2 = c == YAK_MAX_COUNT? YAK_COUNTER_BITS : um_ilog2_32(c);
 				yak_ht_put(f, kh_key(g, k) >> YAK_COUNTER_BITS << YAK_COUNTER_BITS | c_log2, &absent);
 			}
 		}
@@ -425,12 +425,13 @@ void um_didx_destroy(void *h)
 int um_didx_get(const void *h_, uint64_t x)
 {
 	const yak_ch_t *h = (const yak_ch_t*)h_;
-	int mask = (1<<h->pre) - 1;
+	int c, mask = (1<<h->pre) - 1;
 	yak_ht_t *g = h->h[x&mask].h;
 	khint_t k;
 	k = yak_ht_get(g, x >> h->pre << YAK_COUNTER_BITS);
-	//if (k != kh_end(g)) fprintf(stderr, "%llx\t%d\n", x, (int)(kh_key(g, k)&YAK_MAX_COUNT));
-	return k == kh_end(g)? 0 : kh_key(g, k)&YAK_MAX_COUNT;
+	if (k == kh_end(g)) return 0; // absent from the hash table; then a unique or non-existing k-mer
+	c = kh_key(g, k) & YAK_MAX_COUNT;
+	return c == YAK_COUNTER_BITS? -1 : c;
 }
 
 void um_didx_dump(FILE *fp, const void *h_)

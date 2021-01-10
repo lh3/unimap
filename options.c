@@ -9,14 +9,17 @@ void mm_idxopt_init(mm_idxopt_t *opt)
 	opt->bucket_bits = 14;
 	opt->bf_bits = 36;
 	opt->mini_batch_size = 1000000000;
+	opt->adap_occ = 20;
+	opt->adap_dist = 1000;
 }
 
 void mm_mapopt_init(mm_mapopt_t *opt)
 {
 	memset(opt, 0, sizeof(mm_mapopt_t));
 	opt->seed = 11;
+	opt->mid_occ = 50;
+	opt->mid_occ_cap = 250;
 	opt->mid_occ_frac = 2e-4f;
-	opt->sdust_thres = 0; // no SDUST masking
 
 	opt->min_cnt = 3;
 	opt->min_chain_score = 40;
@@ -53,12 +56,12 @@ void mm_mapopt_init(mm_mapopt_t *opt)
 
 void mm_mapopt_update(mm_mapopt_t *opt, const mm_idx_t *mi)
 {
+	int mid_occ;
 	if ((opt->flag & MM_F_SPLICE_FOR) || (opt->flag & MM_F_SPLICE_REV))
 		opt->flag |= MM_F_SPLICE;
-	if (opt->mid_occ <= 0)
-		opt->mid_occ = mm_idx_cal_max_occ(mi, opt->mid_occ_frac);
-	if (opt->mid_occ < opt->min_mid_occ)
-		opt->mid_occ = opt->min_mid_occ;
+	mid_occ = mm_idx_cal_max_occ(mi, opt->mid_occ_frac);
+	if (mid_occ > opt->mid_occ_cap) mid_occ = opt->mid_occ_cap;
+	if (opt->mid_occ < mid_occ) opt->mid_occ = mid_occ;
 	if (mm_verbose >= 3)
 		fprintf(stderr, "[M::%s::%.3f*%.2f] mid_occ = %d\n", __func__, realtime() - mm_realtime0, cputime() / (realtime() - mm_realtime0), opt->mid_occ);
 }
@@ -77,19 +80,16 @@ int mm_set_opt(const char *preset, mm_idxopt_t *io, mm_mapopt_t *mo)
 	} else if (strcmp(preset, "asm5") == 0) {
 		io->flag = 0, io->k = 21, io->w = 21;
 		mo->a = 1, mo->b = 19, mo->q = 39, mo->q2 = 81, mo->e = 3, mo->e2 = 1, mo->zdrop = 800, mo->zdrop_inv = 200;
-		mo->min_mid_occ = 100;
 		mo->min_dp_max = 200;
 		mo->best_n = 50;
 	} else if (strcmp(preset, "asm10") == 0) {
 		io->flag = 0, io->k = 21, io->w = 21;
 		mo->a = 1, mo->b = 9, mo->q = 16, mo->q2 = 41, mo->e = 2, mo->e2 = 1, mo->zdrop = 800, mo->zdrop_inv = 200;
-		mo->min_mid_occ = 100;
 		mo->min_dp_max = 200;
 		mo->best_n = 50;
 	} else if (strcmp(preset, "asm20") == 0) {
 		io->flag = 0, io->k = 21, io->w = 11;
 		mo->a = 1, mo->b = 4, mo->q = 6, mo->q2 = 26, mo->e = 2, mo->e2 = 1, mo->zdrop = 800, mo->zdrop_inv = 200;
-		mo->min_mid_occ = 100;
 		mo->min_dp_max = 200;
 		mo->best_n = 50;
 	} else if (strncmp(preset, "splice", 6) == 0 || strcmp(preset, "cdna") == 0) {

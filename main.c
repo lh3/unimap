@@ -49,7 +49,6 @@ static ko_longopt_t long_options[] = {
 	{ "all-chain",      ko_no_argument,       'P' },
 	{ "dual",           ko_required_argument, 326 },
 	{ "max-clip-ratio", ko_required_argument, 327 },
-	{ "min-occ-floor",  ko_required_argument, 328 },
 	{ "MD",             ko_no_argument,       329 },
 	{ "score-N",        ko_required_argument, 331 },
 	{ "eqx",            ko_no_argument,       332 },
@@ -103,7 +102,7 @@ static inline void yes_or_no(mm_mapopt_t *opt, int flag, int long_idx, const cha
 
 int main(int argc, char *argv[])
 {
-	const char *opt_str = "2aSDw:k:K:t:r:f:Vv:g:G:d:XT:s:x:Hcp:M:n:z:A:B:O:E:m:N:Qu:R:hF:LC:yYPo:W";
+	const char *opt_str = "2aSDw:k:K:t:r:f:Vv:g:G:d:Xs:x:Hcp:M:n:z:A:B:O:E:m:N:Qu:R:hF:LC:yYPo:WU:";
 	ketopt_t o = KETOPT_INIT;
 	mm_mapopt_t opt;
 	mm_idxopt_t ipt;
@@ -156,7 +155,6 @@ int main(int argc, char *argv[])
 		else if (c == 'Y') opt.flag |= MM_F_SOFTCLIP;
 		else if (c == 'L') opt.flag |= MM_F_LONG_CIGAR;
 		else if (c == 'y') opt.flag |= MM_F_COPY_COMMENT;
-		else if (c == 'T') opt.sdust_thres = atoi(o.arg);
 		else if (c == 'n') opt.min_cnt = atoi(o.arg);
 		else if (c == 'm') opt.min_chain_score = atoi(o.arg);
 		else if (c == 'A') opt.a = atoi(o.arg);
@@ -169,6 +167,7 @@ int main(int argc, char *argv[])
 		else if (c == '2') opt.flag |= MM_F_2_IO_THREADS;
 		else if (c == 'W') ipt.flag |= MM_I_NO_DUPIDX;
 		else if (c == 'F') ipt.bf_bits = atoi(o.arg);
+		else if (c == 'f') opt.mid_occ_frac = atof(o.arg);
 		else if (c == 'o') {
 			if (strcmp(o.arg, "-") != 0) {
 				if (freopen(o.arg, "wb", stdout) == NULL) {
@@ -195,7 +194,6 @@ int main(int argc, char *argv[])
 		else if (c == 322) opt.flag |= MM_F_FOR_ONLY; // --for-only
 		else if (c == 323) opt.flag |= MM_F_REV_ONLY; // --rev-only
 		else if (c == 327) opt.max_clip_ratio = atof(o.arg); // --max-clip-ratio
-		else if (c == 328) opt.min_mid_occ = atoi(o.arg); // --min-occ-floor
 		else if (c == 329) opt.flag |= MM_F_OUT_MD; // --MD
 		else if (c == 331) opt.sc_ambi = atoi(o.arg); // --score-N
 		else if (c == 332) opt.flag |= MM_F_EQX; // --eqx
@@ -235,13 +233,10 @@ int main(int argc, char *argv[])
 		} else if (c == 'V') {
 			puts(MM_VERSION);
 			return 0;
-		} else if (c == 'f') {
-			double x;
-			char *p;
-			x = strtod(o.arg, &p);
-			if (x < 1.0) opt.mid_occ_frac = x, opt.mid_occ = 0;
-			else opt.mid_occ = (int)(x + .499);
-			if (*p == ',') opt.max_occ = (int)(strtod(p+1, &p) + .499);
+		} else if (c == 'U') {
+			opt.mid_occ = strtol(o.arg, &s, 10);
+			if (*s == ',') opt.mid_occ_cap = strtol(s + 1, &s, 10);
+			if (opt.mid_occ_cap < opt.mid_occ) opt.mid_occ_cap = opt.mid_occ;
 		} else if (c == 'u') {
 			if (*o.arg == 'b') opt.flag |= MM_F_SPLICE_FOR|MM_F_SPLICE_REV; // both strands
 			else if (*o.arg == 'f') opt.flag |= MM_F_SPLICE_FOR, opt.flag &= ~MM_F_SPLICE_REV; // match GT-AG
@@ -282,6 +277,7 @@ int main(int argc, char *argv[])
 		fprintf(fp_help, "    -d FILE      dump index to FILE []\n");
 		fprintf(fp_help, "  Mapping:\n");
 		fprintf(fp_help, "    -f FLOAT     filter out top FLOAT fraction of repetitive minimizers [%g]\n", opt.mid_occ_frac);
+		fprintf(fp_help, "    -U INT[,INT] choose the minimizer occurrence threshold within this interval [%d,%d]\n", opt.mid_occ, opt.mid_occ_cap);
 		fprintf(fp_help, "    -g NUM       stop chain enlongation if there are no minimizers in INT-bp [%d]\n", opt.max_gap);
 		fprintf(fp_help, "    -G NUM       max intron length (effective with -xsplice; changing -r) [200k]\n");
 		fprintf(fp_help, "    -r NUM       bandwidth used in chaining and DP-based alignment [%d]\n", opt.bw);
@@ -338,7 +334,7 @@ int main(int argc, char *argv[])
 			fprintf(stderr, "[ERROR] missing input: please specify a query file to map or option -d to keep the index\n");
 			return 1;
 		}
-		mi = um_idx_gen(argv[o.ind], ipt.w, ipt.k, ipt.bucket_bits, ipt.flag, ipt.bf_bits, ipt.mini_batch_size, n_threads);
+		mi = um_idx_gen(argv[o.ind], ipt.w, ipt.k, ipt.bucket_bits, ipt.flag, ipt.bf_bits, ipt.mini_batch_size, ipt.adap_occ, ipt.adap_dist, n_threads);
 		if (fnw) {
 			FILE *fp;
 			if ((fp = fopen(fnw, "wb")) == 0) {

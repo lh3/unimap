@@ -5,6 +5,7 @@
 #define __STDC_LIMIT_MACROS
 #include "kvec.h"
 #include "umpriv.h"
+#include "ksort.h"
 
 unsigned char seq_nt4_table[256] = {
 	0, 1, 2, 3,  4, 4, 4, 4,  4, 4, 4, 4,  4, 4, 4, 4,
@@ -51,6 +52,52 @@ static inline int mzcmp(const mm128_t *a, const mm128_t *b) // TODO: we only nee
 	return ya < yb? -1 : ya > yb? 1 : ((a->x > b->x) - (a->x < b->x));
 }
 
+#define MAX_MAX_HIGH_OCC 128
+
+#define mz_lt(a, b) (mzcmp(&(a), &(b)) < 0)
+KSORT_INIT(mz, mm128_t, mz_lt)
+
+static void select_mz(mm128_v *p, int len, int dist)
+{ // for high-occ minimizers, choose up to max_high_occ in each high-occ streak
+	int32_t i, last0 = -1, n = (int32_t)p->n, m = 0;
+	mm128_t b[MAX_MAX_HIGH_OCC]; // this is to avoid a heap allocation
+
+	if (n == 0 || n == 1) return;
+	for (i = 0; i < n; ++i)
+		if (p->a[i].y>>32 != 0) ++m;
+	if (m == 0) return; // no high-frequency k-mers; do nothing
+	for (i = 0; i <= n; ++i) {
+		if (i == n || p->a[i].y>>32 == 0) {
+			if (i - last0 > 1) {
+				int32_t ps = last0 < 0? 0 : (uint32_t)p->a[last0].y;
+				int32_t pe = i == n? len : (uint32_t)p->a[i].y;
+				int32_t j, k, st = last0 + 1, en = i;
+				int32_t max_high_occ = (int32_t)((double)(pe - ps) / dist + .499);
+				if (max_high_occ > MAX_MAX_HIGH_OCC)
+					max_high_occ = MAX_MAX_HIGH_OCC;
+				for (j = st, k = 0; j < en && k < max_high_occ; ++j, ++k)
+					b[k] = p->a[j], b[k].y = (b[k].y&0xFFFFFFFF00000000ULL) | j; // lower 32 bits of b[].y keep the index in p->a[]
+				ks_heapmake_mz(k, b); // initialize the binomial heap
+				for (; j < en; ++j) { // if there are more, choose top max_high_occ
+					if (mz_lt(p->a[j], b[0])) { // then update the heap
+						b[0] = p->a[j], b[0].y = (b[0].y&0xFFFFFFFF00000000ULL) | j;
+						ks_heapdown_mz(0, k, b);
+					}
+				}
+				//ks_heapsort_mz(k, b); // sorting is not needed for now
+				for (j = 0; j < k; ++j)
+					if (1<<(b[j].y>>32) < pe - ps)
+						p->a[(uint32_t)b[j].y].y &= 0xFFFFFFFFULL;
+			}
+			last0 = i;
+		}
+	}
+	for (i = n = 0; i < (int32_t)p->n; ++i) // squeeze out filtered minimizers
+		if (p->a[i].y>>32 == 0)
+			p->a[n++] = p->a[i];
+	p->n = n;
+}
+
 /**
  * Find symmetric (w,k)-minimizers on a DNA sequence
  *
@@ -68,7 +115,7 @@ static inline int mzcmp(const mm128_t *a, const mm128_t *b) // TODO: we only nee
  *               and strand indicates whether the minimizer comes from the top or the bottom strand.
  *               Callers may want to set "p->n = 0"; otherwise results are appended to p
  */
-void mm_sketch(void *km, const char *str, int len, int w, int k, uint32_t rid, int is_hpc, mm128_v *p, const void *di)
+void mm_sketch(void *km, const char *str, int len, int w, int k, uint32_t rid, int is_hpc, mm128_v *p, const void *di, int adap_occ, int adap_dist)
 {
 	uint64_t shift1 = 2 * (k - 1), mask = (1ULL<<2*k) - 1, kmer[2] = {0,0};
 	int i, j, l, buf_pos, min_pos, kmer_span = 0, n0 = p->n;
@@ -103,9 +150,17 @@ void mm_sketch(void *km, const char *str, int len, int w, int k, uint32_t rid, i
 			z = kmer[0] < kmer[1]? 0 : 1; // strand
 			++l;
 			if (l >= k && kmer_span < 256) {
-				info.x = um_hash64(kmer[z], mask) << 8 | kmer_span;
-				info.y = (uint32_t)i<<1 | z;
-				if (di) info.y |= (uint64_t)um_didx_get(di, info.x >> 8) << 32;
+				int32_t c = 0;
+				uint64_t hash;
+				hash = um_hash64(kmer[z], mask);
+				if (di) {
+					c = um_didx_get(di, hash);
+					if (c >= 0 && 1<<c < adap_occ) c = 0;
+				}
+				if (c >= 0) {
+					info.x = hash << 8 | kmer_span;
+					info.y = (uint64_t)c << 32 | (uint32_t)i<<1 | z;
+				}
 			}
 		} else l = 0, tq.count = tq.front = 0, kmer_span = 0;
 		buf[buf_pos] = info; // need to do this here as appropriate buf_pos and buf[buf_pos] are needed below
@@ -158,6 +213,7 @@ void mm_sketch(void *km, const char *str, int len, int w, int k, uint32_t rid, i
 			p->n = j;
 		}
 	}
+	if (di) select_mz(p, len, adap_dist);
 	for (i = n0; i < (int)p->n; ++i)
 		p->a[i].y = p->a[i].y << 32 >> 32 | (uint64_t)rid << 32;
 }
