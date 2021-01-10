@@ -67,7 +67,7 @@ void mm_select_mz(mm128_v *p, int n0, int len, int dist)
 		if (p->a[i].y>>32 != 0) ++m;
 	if (m == 0) return; // no high-frequency k-mers; do nothing
 	for (i = n0, last0 = n0 - 1; i <= n; ++i) {
-		if (i == n || p->a[i].y>>32 == 0) {
+		if (i == n || p->a[i].y>>32 <= 1) {
 			if (i - last0 > 1) {
 				int32_t ps = last0 < n0? 0 : (uint32_t)p->a[last0].y;
 				int32_t pe = i == n? len : (uint32_t)p->a[i].y;
@@ -93,7 +93,7 @@ void mm_select_mz(mm128_v *p, int n0, int len, int dist)
 		}
 	}
 	for (i = n = n0; i < (int32_t)p->n; ++i) // squeeze out filtered minimizers
-		if (p->a[i].y>>32 == 0)
+		if (p->a[i].y>>32 <= 1)
 			p->a[n++] = p->a[i];
 	p->n = n;
 }
@@ -155,7 +155,7 @@ void mm_sketch(void *km, const char *str, int len, int w, int k, uint32_t rid, i
 				hash = um_hash64(kmer[z], mask);
 				if (di) {
 					c = um_didx_get(di, hash);
-					if (c >= 0 && 1<<c < adap_occ) c = 0;
+					if (c >= 1 && 1<<c < adap_occ) c = 1;
 				}
 				if (c >= 0) {
 					info.x = hash << 8 | kmer_span;
@@ -213,6 +213,7 @@ void mm_sketch(void *km, const char *str, int len, int w, int k, uint32_t rid, i
 			p->n = j;
 		}
 	}
+//	for (i = n0; i < (int)p->n; ++i) fprintf(stderr, "X\t%d\t%d\n", (int32_t)p->a[i].y, (int32_t)(p->a[i].y>>32));
 	for (i = n0; i < (int)p->n; ++i)
 		p->a[i].y = p->a[i].y << 32 >> 32 | (uint64_t)rid << 32;
 }

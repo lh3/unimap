@@ -97,6 +97,25 @@ int yak_bf_insert(yak_bf_t *b, uint64_t hash)
 	return cnt;
 }
 
+int yak_bf_get(const yak_bf_t *b, uint64_t hash)
+{
+	int x = b->n_shift - YAK_BLK_SHIFT;
+	uint64_t y = hash & ((1ULL<<x) - 1);
+	int h1 = hash >> x & YAK_BLK_MASK;
+	int h2 = hash >> b->n_shift & YAK_BLK_MASK;
+	const uint8_t *p = &b->b[y<<(YAK_BLK_SHIFT-3)];
+	int i, z = h1, cnt = 0;
+	if ((h2&31) == 0) h2 = (h2 + 1) & YAK_BLK_MASK; // otherwise we may repeatedly use a few bits
+	for (i = 0; i < b->n_hashes; z = (z + h2) & YAK_BLK_MASK) {
+		const uint8_t *q = &p[z>>3];
+		uint8_t u;
+		u = 1<<(z&7);
+		cnt += !!(*q & u);
+		++i;
+	}
+	return cnt;
+}
+
 /*** hash table ***/
 
 yak_ch_t *yak_ch_init(int k, int pre, int n_hash, int n_shift)
@@ -387,13 +406,13 @@ yak_ch_t *yak_count(const char *fn, const yak_copt_t *opt, yak_ch_t *h0)
 	return pl.h;
 }
 
-yak_ch_t *yak_count_file(const char *fn1, const char *fn2, const yak_copt_t *opt)
+yak_ch_t *yak_count_file(const char *fn1, const char *fn2, const yak_copt_t *opt, int keep_bf)
 {
 	yak_ch_t *h;
 	h = yak_count(fn1, opt, 0); // if bloom filter is in use, this gets approximate counts
 	fprintf(stderr, "[M::%s::%.3f*%.2f] round 1: %ld distinct k-mers\n", __func__, realtime() - mm_realtime0, cputime() / (realtime() - mm_realtime0), (long)h->tot);
 	if (opt->bf_shift > 0) { // bloom filter is in use
-		yak_ch_destroy_bf(h); // deallocate bloom filter
+		if (!keep_bf) yak_ch_destroy_bf(h); // deallocate bloom filter
 		yak_ch_clear(h, opt->n_thread); // set counts to 0
 		h = yak_count(fn2? fn2 : fn1, opt, h); // count again
 	}
@@ -413,7 +432,7 @@ void *um_didx_gen(const char *fn, int k, int pre, int bf_bits, uint64_t mini_bat
 	if (pre < YAK_COUNTER_BITS) pre = YAK_COUNTER_BITS;
 	yak_copt_init(&opt);
 	opt.k = k, opt.pre = pre, opt.chunk_size = mini_batch_size, opt.bf_shift = bf_bits;
-	h = yak_count_file(fn, fn, &opt);
+	h = yak_count_file(fn, fn, &opt, 1);
 	return h;
 }
 
@@ -426,46 +445,53 @@ int um_didx_get(const void *h_, uint64_t x)
 {
 	const yak_ch_t *h = (const yak_ch_t*)h_;
 	int c, mask = (1<<h->pre) - 1;
-	yak_ht_t *g = h->h[x&mask].h;
+	const yak_ht_t *g = h->h[x&mask].h;
+	const yak_bf_t *f = h->h[x&mask].b;
 	khint_t k;
+	if (yak_bf_get(f, x >> h->pre) != h->n_hash) return -1;
 	k = yak_ht_get(g, x >> h->pre << YAK_COUNTER_BITS);
 	if (k == kh_end(g)) return 0; // absent from the hash table; then a unique or non-existing k-mer
 	c = kh_key(g, k) & YAK_MAX_COUNT;
-	return c == YAK_COUNTER_BITS? -1 : c;
+	return c == YAK_COUNTER_BITS? -2 : c;
 }
 
 void um_didx_dump(FILE *fp, const void *h_)
 {
 	const yak_ch_t *h = (const yak_ch_t*)h_;
-	uint32_t t[2];
+	uint32_t t[4], bf_size;
 	int i;
-	t[0] = h->pre, t[1] = h->k;
-	fwrite(t, 4, 2, fp);
+	t[0] = h->pre, t[1] = h->k, t[2] = h->n_shift, t[3] = h->n_hash;
+	bf_size = 1 << (h->n_shift - h->pre - 3);
+	fwrite(t, 4, 4, fp);
 	fwrite(&h->tot, 8, 1, fp);
 	for (i = 0; i < 1<<h->pre; ++i) {
 		yak_ht_t *b = h->h[i].h;
+		yak_bf_t *f = h->h[i].b;
 		uint32_t size = b? b->count : 0;
 		khint_t k;
 		fwrite(&size, 4, 1, fp);
 		for (k = 0; k < kh_end(b); ++k)
 			if (kh_exist(b, k))
 				fwrite(&kh_key(b, k), 8, 1, fp);
+		if (f->b) fwrite(f->b, 1, bf_size, fp);
 	}
 }
 
 void *um_didx_load(FILE *fp)
 {
-	uint32_t t[2];
+	uint32_t t[4], bf_size;
 	uint64_t tot;
 	int32_t i;
 	yak_ch_t *h;
-	if (fread(t, 4, 2, fp) != 2) return 0;
+	if (fread(t, 4, 4, fp) != 4) return 0;
 	if (fread(&tot, 8, 1, fp) != 1) return 0;
-	h = yak_ch_init(t[1], t[0], 0, 0);
+	h = yak_ch_init(t[1], t[0], t[3], t[2]);
+	bf_size = 1 << (h->n_shift - h->pre - 3);
 	h->tot = tot;
 	for (i = 0; i < 1<<h->pre; ++i) {
 		uint32_t j, size;
 		yak_ht_t *b = h->h[i].h;
+		yak_bf_t *f = h->h[i].b;
 		fread(&size, 4, 1, fp);
 		yak_ht_resize(b, size);
 		for (j = 0; j < size; ++j) {
@@ -475,6 +501,7 @@ void *um_didx_load(FILE *fp)
 			yak_ht_put(b, x, &absent);
 			assert(absent);
 		}
+		fread(f->b, 1, bf_size, fp);
 	}
 	return h;
 }
