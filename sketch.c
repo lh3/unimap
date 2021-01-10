@@ -57,19 +57,19 @@ static inline int mzcmp(const mm128_t *a, const mm128_t *b) // TODO: we only nee
 #define mz_lt(a, b) (mzcmp(&(a), &(b)) < 0)
 KSORT_INIT(mz, mm128_t, mz_lt)
 
-static void select_mz(mm128_v *p, int len, int dist)
+static void select_mz(mm128_v *p, int n0, int len, int dist)
 { // for high-occ minimizers, choose up to max_high_occ in each high-occ streak
-	int32_t i, last0 = -1, n = (int32_t)p->n, m = 0;
+	int32_t i, last0, n = (int32_t)p->n, m = 0;
 	mm128_t b[MAX_MAX_HIGH_OCC]; // this is to avoid a heap allocation
 
-	if (n == 0 || n == 1) return;
-	for (i = 0; i < n; ++i)
+	if (n - n0 == 0 || n - n0 == 1) return;
+	for (i = n0; i < n; ++i)
 		if (p->a[i].y>>32 != 0) ++m;
 	if (m == 0) return; // no high-frequency k-mers; do nothing
-	for (i = 0; i <= n; ++i) {
+	for (i = n0, last0 = n0 - 1; i <= n; ++i) {
 		if (i == n || p->a[i].y>>32 == 0) {
 			if (i - last0 > 1) {
-				int32_t ps = last0 < 0? 0 : (uint32_t)p->a[last0].y;
+				int32_t ps = last0 < n0? 0 : (uint32_t)p->a[last0].y;
 				int32_t pe = i == n? len : (uint32_t)p->a[i].y;
 				int32_t j, k, st = last0 + 1, en = i;
 				int32_t max_high_occ = (int32_t)((double)(pe - ps) / dist + .499);
@@ -92,7 +92,7 @@ static void select_mz(mm128_v *p, int len, int dist)
 			last0 = i;
 		}
 	}
-	for (i = n = 0; i < (int32_t)p->n; ++i) // squeeze out filtered minimizers
+	for (i = n = n0; i < (int32_t)p->n; ++i) // squeeze out filtered minimizers
 		if (p->a[i].y>>32 == 0)
 			p->a[n++] = p->a[i];
 	p->n = n;
@@ -213,7 +213,7 @@ void mm_sketch(void *km, const char *str, int len, int w, int k, uint32_t rid, i
 			p->n = j;
 		}
 	}
-	if (di) select_mz(p, len, adap_dist);
+	if (di) select_mz(p, n0, len, adap_dist);
 	for (i = n0; i < (int)p->n; ++i)
 		p->a[i].y = p->a[i].y << 32 >> 32 | (uint64_t)rid << 32;
 }
