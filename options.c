@@ -9,8 +9,7 @@ void mm_idxopt_init(mm_idxopt_t *opt)
 	opt->bucket_bits = 14;
 	opt->bf_bits = 36;
 	opt->mini_batch_size = 1000000000;
-	opt->adap_occ = 20;
-	opt->adap_dist = 1000;
+	opt->adap_occ = 50;
 }
 
 void mm_mapopt_init(mm_mapopt_t *opt)

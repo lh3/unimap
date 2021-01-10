@@ -37,7 +37,7 @@ void *mm_tbuf_get_km(mm_tbuf_t *b)
 static void collect_minimizers(void *km, const mm_mapopt_t *opt, const mm_idx_t *mi, int qlen, const char *seq, mm128_v *mv)
 {
 	mv->n = 0;
-	mm_sketch(km, seq, qlen, mi->w, mi->k, 0, mi->flag&MM_I_HPC, mv, mi->dh, mi->adap_occ, mi->adap_dist);
+	mm_sketch(km, seq, qlen, mi->w, mi->k, 0, mi->flag&MM_I_HPC, mv, mi->dh, mi->adap_occ);
 }
 
 typedef struct {

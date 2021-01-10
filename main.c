@@ -7,8 +7,6 @@
 #include "umpriv.h"
 #include "ketopt.h"
 
-#define MM_VERSION "2.17-r974-dirty"
-
 #ifdef __linux__
 #include <sys/resource.h>
 #include <sys/time.h>
@@ -231,7 +229,7 @@ int main(int argc, char *argv[])
 			if (mm_verbose >= 2)
 				fprintf(stderr, "[WARNING]\033[1;31m option -S is deprecated and may be removed in future. Please use --cs=long instead.\033[0m\n");
 		} else if (c == 'V') {
-			puts(MM_VERSION);
+			puts(UM_VERSION);
 			return 0;
 		} else if (c == 'U') {
 			opt.mid_occ = strtol(o.arg, &s, 10);
@@ -334,7 +332,7 @@ int main(int argc, char *argv[])
 			fprintf(stderr, "[ERROR] missing input: please specify a query file to map or option -d to keep the index\n");
 			return 1;
 		}
-		mi = um_idx_gen(argv[o.ind], ipt.w, ipt.k, ipt.bucket_bits, ipt.flag, ipt.bf_bits, ipt.mini_batch_size, ipt.adap_occ, ipt.adap_dist, n_threads);
+		mi = um_idx_gen(argv[o.ind], ipt.w, ipt.k, ipt.bucket_bits, ipt.flag, ipt.bf_bits, ipt.mini_batch_size, ipt.adap_occ, n_threads);
 		if (fnw) {
 			FILE *fp;
 			if ((fp = fopen(fnw, "wb")) == 0) {
@@ -352,7 +350,7 @@ int main(int argc, char *argv[])
 		return 1;
 	}
 	if (opt.flag & MM_F_OUT_SAM) {
-		ret = mm_write_sam_hdr(mi, rg, MM_VERSION, argc, argv);
+		ret = mm_write_sam_hdr(mi, rg, UM_VERSION, argc, argv);
 		if (ret != 0) {
 			mm_idx_destroy(mi);
 			return 1;
@@ -383,7 +381,7 @@ int main(int argc, char *argv[])
 	}
 
 	if (mm_verbose >= 3) {
-		fprintf(stderr, "[M::%s] Version: %s\n", __func__, MM_VERSION);
+		fprintf(stderr, "[M::%s] Version: %s\n", __func__, UM_VERSION);
 		fprintf(stderr, "[M::%s] CMD:", __func__);
 		for (i = 0; i < argc; ++i)
 			fprintf(stderr, " %s", argv[i]);

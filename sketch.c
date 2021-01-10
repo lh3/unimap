@@ -57,7 +57,7 @@ static inline int mzcmp(const mm128_t *a, const mm128_t *b) // TODO: we only nee
 #define mz_lt(a, b) (mzcmp(&(a), &(b)) < 0)
 KSORT_INIT(mz, mm128_t, mz_lt)
 
-static void select_mz(mm128_v *p, int n0, int len, int dist)
+void mm_select_mz(mm128_v *p, int n0, int len, int dist)
 { // for high-occ minimizers, choose up to max_high_occ in each high-occ streak
 	int32_t i, last0, n = (int32_t)p->n, m = 0;
 	mm128_t b[MAX_MAX_HIGH_OCC]; // this is to avoid a heap allocation
@@ -115,7 +115,7 @@ static void select_mz(mm128_v *p, int n0, int len, int dist)
  *               and strand indicates whether the minimizer comes from the top or the bottom strand.
  *               Callers may want to set "p->n = 0"; otherwise results are appended to p
  */
-void mm_sketch(void *km, const char *str, int len, int w, int k, uint32_t rid, int is_hpc, mm128_v *p, const void *di, int adap_occ, int adap_dist)
+void mm_sketch(void *km, const char *str, int len, int w, int k, uint32_t rid, int is_hpc, mm128_v *p, const void *di, int adap_occ)
 {
 	uint64_t shift1 = 2 * (k - 1), mask = (1ULL<<2*k) - 1, kmer[2] = {0,0};
 	int i, j, l, buf_pos, min_pos, kmer_span = 0, n0 = p->n;
@@ -213,7 +213,6 @@ void mm_sketch(void *km, const char *str, int len, int w, int k, uint32_t rid, i
 			p->n = j;
 		}
 	}
-	if (di) select_mz(p, n0, len, adap_dist);
 	for (i = n0; i < (int)p->n; ++i)
 		p->a[i].y = p->a[i].y << 32 >> 32 | (uint64_t)rid << 32;
 }
