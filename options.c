@@ -35,23 +35,20 @@ void mm_mapopt_init(mm_mapopt_t *opt)
 	opt->mask_level = 0.5f;
 	opt->mask_len = INT_MAX;
 	opt->pri_ratio = 0.8f;
-	opt->best_n = 5;
+	opt->best_n = 10;
 
 	opt->alt_drop = 0.15f;
 
-	opt->a = 2, opt->b = 4, opt->q = 4, opt->e = 2, opt->q2 = 24, opt->e2 = 1;
+	opt->a = 1, opt->b = 3, opt->q = 5, opt->e = 2, opt->q2 = 25, opt->e2 = 1;
 	opt->sc_ambi = 1;
-	opt->zdrop = 400, opt->zdrop_inv = 200;
+	opt->zdrop = 800, opt->zdrop_inv = 200;
 	opt->end_bonus = -1;
-	opt->min_dp_max = opt->min_chain_score * opt->a;
+	opt->min_dp_max = 200;
 	opt->min_ksw_len = 200;
 	opt->anchor_ext_len = 20, opt->anchor_ext_shift = 6;
 	opt->max_clip_ratio = 1.0f;
-	opt->mini_batch_size = 500000000;
+	opt->mini_batch_size = 1000000000;
 	opt->max_sw_mat = 100000000;
-
-	opt->pe_ori = 0; // FF
-	opt->pe_bonus = 33;
 }
 
 void mm_mapopt_update(mm_mapopt_t *opt, const mm_idx_t *mi)
@@ -77,23 +74,34 @@ int mm_set_opt(const char *preset, mm_idxopt_t *io, mm_mapopt_t *mo)
 	if (preset == 0) {
 		mm_idxopt_init(io);
 		mm_mapopt_init(mo);
+	} else if (strcmp(preset, "clr") == 0 || strcmp(preset, "ont") == 0) {
+		mo->a = 2, mo->b = 4, mo->q = 4, mo->e = 2, mo->q2 = 24, mo->e2 = 1, mo->zdrop = 400, mo->zdrop_inv = 200;
+		mo->min_dp_max = 80;
+		mo->bw = 10000;
+		mo->best_n = 5;
+		mo->flag |= MM_F_NO_RMQ;
+		mo->mini_batch_size = 500000000;
+	} else if (strcmp(preset, "hifi") == 0 || strcmp(preset, "ccs") == 0) {
+		mo->a = 1, mo->b = 4, mo->q = 6, mo->q2 = 26, mo->e = 2, mo->e2 = 1, mo->zdrop = 800, mo->zdrop_inv = 200;
+		mo->min_dp_max = 200;
+		mo->bw = 10000;
+		mo->best_n = 5;
+		mo->flag |= MM_F_NO_RMQ;
+		mo->mini_batch_size = 500000000;
 	} else if (strcmp(preset, "asm5") == 0) {
-		io->flag = 0;
 		mo->a = 1, mo->b = 19, mo->q = 39, mo->q2 = 81, mo->e = 3, mo->e2 = 1, mo->zdrop = 800, mo->zdrop_inv = 200;
 		mo->min_dp_max = 200;
 		mo->best_n = 50;
 	} else if (strcmp(preset, "asm10") == 0) {
-		io->flag = 0;
 		mo->a = 1, mo->b = 9, mo->q = 16, mo->q2 = 41, mo->e = 2, mo->e2 = 1, mo->zdrop = 800, mo->zdrop_inv = 200;
 		mo->min_dp_max = 200;
 		mo->best_n = 50;
 	} else if (strcmp(preset, "asm20") == 0) {
-		io->flag = 0;
 		mo->a = 1, mo->b = 4, mo->q = 6, mo->q2 = 26, mo->e = 2, mo->e2 = 1, mo->zdrop = 800, mo->zdrop_inv = 200;
 		mo->min_dp_max = 200;
 		mo->best_n = 50;
 	} else if (strncmp(preset, "splice", 6) == 0 || strcmp(preset, "cdna") == 0) {
-		io->flag = 0, io->k = 15, io->w = 5;
+		io->k = 15, io->w = 5;
 		mo->flag |= MM_F_SPLICE | MM_F_SPLICE_FOR | MM_F_SPLICE_REV | MM_F_SPLICE_FLANK | MM_F_NO_RMQ;
 		mo->max_gap = 2000, mo->max_gap_ref = mo->bw = 200000;
 		mo->a = 1, mo->b = 2, mo->q = 2, mo->e = 1, mo->q2 = 32, mo->e2 = 0;

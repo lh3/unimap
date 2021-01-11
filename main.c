@@ -33,7 +33,7 @@ static ko_longopt_t long_options[] = {
 	{ "min-dp-len",     ko_required_argument, 308 },
 	{ "print-aln-seq",  ko_no_argument,       309 },
 	{ "splice",         ko_no_argument,       310 },
-	{ "no-rmq",         ko_no_argument,       311 },
+	{ "rmq",            ko_required_argument, 311 },
 	{ "cost-non-gt-ag", ko_required_argument, 'C' },
 	{ "secondary",      ko_required_argument, 315 },
 	{ "cs",             ko_optional_argument, 316 },
@@ -185,7 +185,7 @@ int main(int argc, char *argv[])
 		else if (c == 308) opt.min_ksw_len = atoi(o.arg); // --min-dp-len
 		else if (c == 309) mm_dbg_flag |= MM_DBG_PRINT_QNAME | MM_DBG_PRINT_ALN_SEQ, n_threads = 1; // --print-aln-seq
 		else if (c == 310) opt.flag |= MM_F_SPLICE | MM_F_NO_RMQ; // --splice
-		else if (c == 311) opt.flag |= MM_F_NO_RMQ; // --no-rmq
+		else if (c == 311) yes_or_no(&opt, MM_F_NO_RMQ, o.longidx, o.arg, 0); // --rmq
 		else if (c == 317) opt.end_bonus = atoi(o.arg); // --end-bonus
 		else if (c == 318) opt.flag |= MM_F_INDEPEND_SEG; // --no-pairing
 		else if (c == 320) ipt.flag |= MM_I_NO_SEQ; // --idx-no-seq
@@ -270,10 +270,9 @@ int main(int argc, char *argv[])
 		fprintf(fp_help, "Usage: unimap [options] <target.fa>|<target.idx> [query.fa] [...]\n");
 		fprintf(fp_help, "Options:\n");
 		fprintf(fp_help, "  Indexing:\n");
-		fprintf(fp_help, "    -H           use homopolymer-compressed k-mer (preferrable for PacBio)\n");
 		fprintf(fp_help, "    -k INT       k-mer size (no larger than 28) [%d]\n", ipt.k);
 		fprintf(fp_help, "    -w INT       minimizer window size [%d]\n", ipt.w);
-		fprintf(fp_help, "    -F INT       number of bits for bloom filter, 0 to disable [%d]\n", ipt.bf_bits);
+		fprintf(fp_help, "    -F INT       number of bits for bloom filter [%d]\n", ipt.bf_bits);
 		fprintf(fp_help, "    -d FILE      dump index to FILE []\n");
 		fprintf(fp_help, "  Mapping:\n");
 		fprintf(fp_help, "    -f FLOAT     filter out top FLOAT fraction of repetitive minimizers [%g]\n", opt.mid_occ_frac);
@@ -283,7 +282,6 @@ int main(int argc, char *argv[])
 		fprintf(fp_help, "    -r NUM       bandwidth used in chaining and DP-based alignment [%d]\n", opt.bw);
 		fprintf(fp_help, "    -n INT       minimal number of minimizers on a chain [%d]\n", opt.min_cnt);
 		fprintf(fp_help, "    -m INT       minimal chaining score (matching bases minus log gap penalty) [%d]\n", opt.min_chain_score);
-		fprintf(fp_help, "    -X           skip self and dual mappings (for the all-vs-all mode)\n");
 		fprintf(fp_help, "    -p FLOAT     min secondary-to-primary score ratio [%g]\n", opt.pri_ratio);
 		fprintf(fp_help, "    -N INT       retain at most INT secondary alignments [%d]\n", opt.best_n);
 		fprintf(fp_help, "  Alignment:\n");
@@ -295,24 +293,25 @@ int main(int argc, char *argv[])
 		fprintf(fp_help, "    -s INT       minimal peak DP alignment score [%d]\n", opt.min_dp_max);
 		fprintf(fp_help, "    -u CHAR      how to find GT-AG. f:transcript strand, b:both strands, n:don't match GT-AG [n]\n");
 		fprintf(fp_help, "  Input/Output:\n");
-		fprintf(fp_help, "    -a           output in the SAM format (PAF by default)\n");
+		fprintf(fp_help, "    -c           perform base-alignment and output CIGAR in the PAF format\n");
+		fprintf(fp_help, "    -a           perform base-alignment and output in SAM (PAF by default)\n");
 		fprintf(fp_help, "    -o FILE      output alignments to FILE [stdout]\n");
-		fprintf(fp_help, "    -L           write CIGAR with >65535 ops at the CG tag\n");
 		fprintf(fp_help, "    -R STR       SAM read group line in a format like '@RG\\tID:foo\\tSM:bar' []\n");
-		fprintf(fp_help, "    -c           output CIGAR in PAF\n");
 		fprintf(fp_help, "    --cs[=STR]   output the cs tag; STR is 'short' (if absent) or 'long' [none]\n");
 		fprintf(fp_help, "    --MD         output the MD tag\n");
-		fprintf(fp_help, "    --eqx        write =/X CIGAR operators\n");
 		fprintf(fp_help, "    -Y           use soft clipping for supplementary alignments\n");
 		fprintf(fp_help, "    -t INT       number of threads [%d]\n", n_threads);
-		fprintf(fp_help, "    -K NUM       minibatch size for mapping [500M]\n");
+		fprintf(fp_help, "    -K NUM       minibatch size for mapping [1G]\n");
 //		fprintf(fp_help, "    -v INT       verbose level [%d]\n", mm_verbose);
 		fprintf(fp_help, "    --version    show version number\n");
 		fprintf(fp_help, "  Preset:\n");
 		fprintf(fp_help, "    -x STR       preset (always applied before other options; see unimap.1 for details) []\n");
-		fprintf(fp_help, "                 - map-pb/map-ont - PacBio/Nanopore vs reference mapping\n");
-		fprintf(fp_help, "                 - asm5/asm10/asm20 - asm-to-ref mapping, for ~0.1/1/5%% sequence divergence\n");
-		fprintf(fp_help, "                 - splice/splice:hq - long-read/Pacbio-CCS spliced alignment\n");
+		fprintf(fp_help, "                 - clr/ont:  --rmq=no -r10k -A2 -B4 -O4,24 -E2,1 -z400,200 -s80 -K500M\n");
+		fprintf(fp_help, "                 - hifi/ccs: --rmq=no -r10k -A1 -B4 -O6,26 -E2,1 -K500M\n");
+		fprintf(fp_help, "                 - asm5:  -A1 -B19 -O39,81 -E2,1 -N50\n");
+		fprintf(fp_help, "                 - asm10: -A1 -B9  -O16,41 -E2,1 -N50\n");
+		fprintf(fp_help, "                 - asm20: -A1 -B4  -O6,26  -E2,1 -N50\n");
+		fprintf(fp_help, "                 - splice:hq/splice: spliced alignment\n");
 		fprintf(fp_help, "\nSee `man ./unimap.1' for detailed description of these and other advanced command-line options.\n");
 		return fp_help == stdout? 0 : 1;
 	}
