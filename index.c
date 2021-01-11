@@ -284,7 +284,7 @@ static void worker_sketch(void *d, long i, int tid)
 	pipeline_t *p = s->p;
 	mm_bseq1_t *t = &s->seq[i];
 	if (t->l_seq > 0)
-		mm_sketch(0, t->seq, t->l_seq, p->mi->w, p->mi->k, t->rid, p->mi->flag&MM_I_HPC, &s->a[tid], p->mi->dh, p->mi->adap_occ);
+		mm_sketch(0, t->seq, t->l_seq, p->mi->w, p->mi->k, t->rid, p->mi->flag&MM_I_HPC, &s->a[tid], p->mi->dh, 1, p->mi->adap_occ);
 	else if (mm_verbose >= 2)
 		fprintf(stderr, "[WARNING] the length database sequence '%s' is 0\n", t->name);
 	free(t->seq); free(t->name);

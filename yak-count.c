@@ -441,14 +441,14 @@ void um_didx_destroy(void *h)
 	yak_ch_destroy((yak_ch_t*)h);
 }
 
-int um_didx_get(const void *h_, uint64_t x)
+int um_didx_get(const void *h_, uint64_t x, int skip_bf)
 {
 	const yak_ch_t *h = (const yak_ch_t*)h_;
 	int c, mask = (1<<h->pre) - 1;
 	const yak_ht_t *g = h->h[x&mask].h;
 	const yak_bf_t *f = h->h[x&mask].b;
 	khint_t k;
-	if (yak_bf_get(f, x >> h->pre) != h->n_hash) return -1;
+	if (!skip_bf && yak_bf_get(f, x >> h->pre) != h->n_hash) return -1;
 	k = yak_ht_get(g, x >> h->pre << YAK_COUNTER_BITS);
 	if (k == kh_end(g)) return 0; // absent from the hash table; then a unique or non-existing k-mer
 	c = kh_key(g, k) & YAK_MAX_COUNT;

@@ -51,7 +51,7 @@ void radix_sort_128x(mm128_t *beg, mm128_t *end);
 void radix_sort_64(uint64_t *beg, uint64_t *end);
 uint32_t ks_ksmall_uint32_t(size_t n, uint32_t arr[], size_t kk);
 
-void mm_sketch(void *km, const char *str, int len, int w, int k, uint32_t rid, int is_hpc, mm128_v *p, const void *di, int adap_occ);
+void mm_sketch(void *km, const char *str, int len, int w, int k, uint32_t rid, int is_hpc, mm128_v *p, const void *di, int skip_bf, int adap_occ);
 
 int mm_write_sam_hdr(const mm_idx_t *mi, const char *rg, const char *ver, int argc, char *argv[]);
 void mm_write_paf(kstring_t *s, const mm_idx_t *mi, const mm_bseq1_t *t, const mm_reg1_t *r, void *km, int opt_flag, int rep_len);
@@ -97,7 +97,7 @@ void mm_err_fread(void *p, size_t size, size_t nitems, FILE *fp);
 
 void *um_didx_gen(const char *fn, int k, int pre, int bf_bits, uint64_t mini_batch_size, int n_thread);
 void um_didx_destroy(void *dh);
-int um_didx_get(const void *h_, uint64_t x);
+int um_didx_get(const void *h_, uint64_t x, int skip_bf);
 void um_didx_dump(FILE *fp, const void *h_);
 void *um_didx_load(FILE *fp);
 
