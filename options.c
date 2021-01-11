@@ -27,6 +27,7 @@ void mm_mapopt_init(mm_mapopt_t *opt)
 	opt->max_gap_ref = -1;
 	opt->max_chain_skip = 25;
 	opt->max_chain_iter = 5000;
+	opt->adap_dist = -1;
 	opt->chain_gap_scale = 1.0f;
 	opt->rmq_inner_dist = 1000;
 	opt->rmq_size_cap = 100000;
@@ -77,17 +78,17 @@ int mm_set_opt(const char *preset, mm_idxopt_t *io, mm_mapopt_t *mo)
 		mm_idxopt_init(io);
 		mm_mapopt_init(mo);
 	} else if (strcmp(preset, "asm5") == 0) {
-		io->flag = 0, io->k = 21, io->w = 21;
+		io->flag = 0;
 		mo->a = 1, mo->b = 19, mo->q = 39, mo->q2 = 81, mo->e = 3, mo->e2 = 1, mo->zdrop = 800, mo->zdrop_inv = 200;
 		mo->min_dp_max = 200;
 		mo->best_n = 50;
 	} else if (strcmp(preset, "asm10") == 0) {
-		io->flag = 0, io->k = 21, io->w = 21;
+		io->flag = 0;
 		mo->a = 1, mo->b = 9, mo->q = 16, mo->q2 = 41, mo->e = 2, mo->e2 = 1, mo->zdrop = 800, mo->zdrop_inv = 200;
 		mo->min_dp_max = 200;
 		mo->best_n = 50;
 	} else if (strcmp(preset, "asm20") == 0) {
-		io->flag = 0, io->k = 21, io->w = 11;
+		io->flag = 0;
 		mo->a = 1, mo->b = 4, mo->q = 6, mo->q2 = 26, mo->e = 2, mo->e2 = 1, mo->zdrop = 800, mo->zdrop_inv = 200;
 		mo->min_dp_max = 200;
 		mo->best_n = 50;

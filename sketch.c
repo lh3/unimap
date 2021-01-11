@@ -115,7 +115,7 @@ void mm_select_mz(mm128_v *p, int n0, int len, int dist)
  *               and strand indicates whether the minimizer comes from the top or the bottom strand.
  *               Callers may want to set "p->n = 0"; otherwise results are appended to p
  */
-void mm_sketch(void *km, const char *str, int len, int w, int k, uint32_t rid, int is_hpc, mm128_v *p, const void *di, int skip_bf, int adap_occ)
+void mm_sketch(void *km, const char *str, int len, int w, int k, uint32_t rid, int is_hpc, mm128_v *p, const void *di, int skip_bf, int adap_occ, int adap_dist)
 {
 	uint64_t shift1 = 2 * (k - 1), mask = (1ULL<<2*k) - 1, kmer[2] = {0,0};
 	int i, j, l, buf_pos, min_pos, kmer_span = 0, n0 = p->n;
@@ -214,6 +214,7 @@ void mm_sketch(void *km, const char *str, int len, int w, int k, uint32_t rid, i
 		}
 	}
 //	for (i = n0; i < (int)p->n; ++i) fprintf(stderr, "X\t%d\t%d\n", (int32_t)p->a[i].y, (int32_t)(p->a[i].y>>32));
+	if (adap_dist > w && di) mm_select_mz(p, n0, len, adap_dist);
 	for (i = n0; i < (int)p->n; ++i)
 		p->a[i].y = p->a[i].y << 32 >> 32 | (uint64_t)rid << 32;
 }
