@@ -32,6 +32,9 @@ void mm_mapopt_init(mm_mapopt_t *opt)
 	opt->rmq_inner_dist = 1000;
 	opt->rmq_size_cap = 100000;
 
+	opt->end_len_frac = 0.15f;
+	opt->gap_flank_frac = 0.5f;
+
 	opt->mask_level = 0.5f;
 	opt->mask_len = INT_MAX;
 	opt->pri_ratio = 0.8f;

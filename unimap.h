@@ -5,7 +5,7 @@
 #include <stdio.h>
 #include <sys/types.h>
 
-#define UM_VERSION "0.0-r31-dirty"
+#define UM_VERSION "0.0-r32-dirty"
 
 #define MM_F_NO_DIAG       0x001 // no exact diagonal hit
 #define MM_F_NO_DUAL       0x002 // skip pairs where query name is lexicographically larger than target name
@@ -120,6 +120,8 @@ typedef struct {
 	int min_chain_score; // min chaining score
 	float chain_gap_scale;
 	int rmq_size_cap, rmq_inner_dist;
+
+	float end_len_frac, gap_flank_frac;
 
 	float mask_level;
 	int mask_len;

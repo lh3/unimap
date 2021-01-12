@@ -456,11 +456,18 @@ static void mm_filter_bad_seeds_alt(void *km, int as1, int cnt1, mm128_t *a, int
 	kfree(km, K);
 }
 
-static void mm_fix_bad_ends(const mm_reg1_t *r, const mm128_t *a, int bw, int min_match, int32_t *as, int32_t *cnt)
+static void mm_fix_bad_ends(const mm_reg1_t *r, const mm128_t *a, int bw, float end_len_frac, float gap_flank_frac, int32_t *as, int32_t *cnt)
 {
-	int32_t i, l, m;
+	int32_t i, l, m, qlen, rlen, len, lthres, mthres;
 	*as = r->as, *cnt = r->cnt;
 	if (r->cnt < 3) return;
+	rlen = (int32_t)a[r->as + r->cnt - 1].x - (int32_t)a[r->as].x;
+	qlen = (int32_t)a[r->as + r->cnt - 1].y - (int32_t)a[r->as].y;
+	len = qlen < rlen? qlen : rlen;
+	lthres = (qlen < rlen? qlen : rlen) * end_len_frac;
+	if (lthres > bw) lthres = bw;
+	mthres = r->mlen * end_len_frac * 1.2f;
+
 	m = l = a[r->as].y >> 32 & 0xff;
 	for (i = r->as + 1; i < r->as + r->cnt - 1; ++i) {
 		int32_t lq, lr, min, max;
@@ -470,10 +477,10 @@ static void mm_fix_bad_ends(const mm_reg1_t *r, const mm128_t *a, int bw, int mi
 		lq = (int32_t)a[i].y - (int32_t)a[i-1].y;
 		min = lr < lq? lr : lq;
 		max = lr > lq? lr : lq;
-		if (max - min > l >> 1) *as = i;
+		if (max - min > l * gap_flank_frac) *as = i;
 		l += min;
 		m += min < q_span? min : q_span;
-		if (l >= bw << 1 || (m >= min_match && m >= bw) || m >= r->mlen >> 1) break;
+		if (l >= lthres || m >= mthres) break;
 	}
 	*cnt = r->as + r->cnt - *as;
 	m = l = a[r->as + r->cnt - 1].y >> 32 & 0xff;
@@ -485,10 +492,10 @@ static void mm_fix_bad_ends(const mm_reg1_t *r, const mm128_t *a, int bw, int mi
 		lq = (int32_t)a[i+1].y - (int32_t)a[i].y;
 		min = lr < lq? lr : lq;
 		max = lr > lq? lr : lq;
-		if (max - min > l >> 1) *cnt = i + 1 - *as;
+		if (max - min > l * gap_flank_frac) *cnt = i + 1 - *as;
 		l += min;
 		m += min < q_span? min : q_span;
-		if (l >= bw << 1 || (m >= min_match && m >= bw) || m >= r->mlen >> 1) break;
+		if (l >= lthres || m >= mthres) break;
 	}
 }
 
@@ -553,7 +560,7 @@ static void mm_align1(void *km, const mm_mapopt_t *opt, const mm_idx_t *mi, int 
 		if (is_splice)
 			mm_fix_bad_ends_splice(km, opt, mi, r, mat, qlen, qseq0, a, &as1, &cnt1);
 		else
-			mm_fix_bad_ends(r, a, opt->bw, opt->min_chain_score * 2, &as1, &cnt1);
+			mm_fix_bad_ends(r, a, opt->bw, opt->end_len_frac, opt->gap_flank_frac, &as1, &cnt1);
 	} else as1 = r->as, cnt1 = r->cnt;
 	mm_filter_bad_seeds(km, as1, cnt1, a, 10, 40, opt->max_gap>>1, 10);
 	mm_filter_bad_seeds_alt(km, as1, cnt1, a, 30, opt->max_gap>>1);
