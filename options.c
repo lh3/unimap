@@ -42,7 +42,7 @@ void mm_mapopt_init(mm_mapopt_t *opt)
 
 	opt->a = 1, opt->b = 3, opt->q = 5, opt->e = 2, opt->q2 = 25, opt->e2 = 1;
 	opt->sc_ambi = 1;
-	opt->zdrop = 800, opt->zdrop_inv = 200;
+	opt->zdrop = 400, opt->zdrop_inv = 200;
 	opt->end_bonus = -1;
 	opt->min_dp_max = 200;
 	opt->min_ksw_len = 200;
@@ -70,7 +70,7 @@ int mm_set_opt(const char *preset, mm_idxopt_t *io, mm_mapopt_t *mo)
 		mm_idxopt_init(io);
 		mm_mapopt_init(mo);
 	} else if (strcmp(preset, "clr") == 0 || strcmp(preset, "ont") == 0) {
-		mo->a = 2, mo->b = 4, mo->q = 4, mo->e = 2, mo->q2 = 24, mo->e2 = 1, mo->zdrop = 400, mo->zdrop_inv = 200;
+		mo->a = 2, mo->b = 4, mo->q = 4, mo->e = 2, mo->q2 = 24, mo->e2 = 1;
 		mo->min_dp_max = 80;
 		mo->bw = 10000;
 		mo->best_n = 5;
@@ -78,7 +78,7 @@ int mm_set_opt(const char *preset, mm_idxopt_t *io, mm_mapopt_t *mo)
 		mo->mini_batch_size = 500000000;
 	} else if (strcmp(preset, "hifi") == 0 || strcmp(preset, "ccs") == 0) {
 		io->w = 21;
-		mo->a = 1, mo->b = 4, mo->q = 6, mo->q2 = 26, mo->e = 2, mo->e2 = 1, mo->zdrop = 800, mo->zdrop_inv = 200;
+		mo->a = 1, mo->b = 4, mo->q = 6, mo->q2 = 26, mo->e = 2, mo->e2 = 1;
 		mo->min_dp_max = 200;
 		mo->bw = 10000;
 		mo->best_n = 5;
@@ -86,16 +86,16 @@ int mm_set_opt(const char *preset, mm_idxopt_t *io, mm_mapopt_t *mo)
 		mo->mini_batch_size = 500000000;
 	} else if (strcmp(preset, "asm5") == 0) {
 		io->w = 21;
-		mo->a = 1, mo->b = 19, mo->q = 39, mo->q2 = 81, mo->e = 3, mo->e2 = 1, mo->zdrop = 800, mo->zdrop_inv = 200;
+		mo->a = 1, mo->b = 19, mo->q = 39, mo->q2 = 81, mo->e = 3, mo->e2 = 1;
 		mo->min_dp_max = 200;
 		mo->best_n = 50;
 	} else if (strcmp(preset, "asm10") == 0) {
 		io->w = 21;
-		mo->a = 1, mo->b = 9, mo->q = 16, mo->q2 = 41, mo->e = 2, mo->e2 = 1, mo->zdrop = 800, mo->zdrop_inv = 200;
+		mo->a = 1, mo->b = 9, mo->q = 16, mo->q2 = 41, mo->e = 2, mo->e2 = 1;
 		mo->min_dp_max = 200;
 		mo->best_n = 50;
 	} else if (strcmp(preset, "asm20") == 0) {
-		mo->a = 1, mo->b = 4, mo->q = 6, mo->q2 = 26, mo->e = 2, mo->e2 = 1, mo->zdrop = 800, mo->zdrop_inv = 200;
+		mo->a = 1, mo->b = 4, mo->q = 6, mo->q2 = 26, mo->e = 2, mo->e2 = 1;
 		mo->min_dp_max = 200;
 		mo->best_n = 50;
 	} else if (strncmp(preset, "splice", 6) == 0 || strcmp(preset, "cdna") == 0) {
