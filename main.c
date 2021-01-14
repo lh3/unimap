@@ -101,7 +101,7 @@ static inline void yes_or_no(mm_mapopt_t *opt, int flag, int long_idx, const cha
 
 int main(int argc, char *argv[])
 {
-	const char *opt_str = "2aSDw:k:K:t:r:f:Vv:g:G:d:Xs:x:Hcp:M:n:z:A:B:O:E:m:N:Qu:R:hF:LC:yYPo:WU:";
+	const char *opt_str = "2aSDw:k:K:t:r:f:Vv:g:G:d:Xs:x:Hcp:M:n:z:A:B:O:E:m:N:Qu:R:hb:LC:yYPo:F:U";
 	ketopt_t o = KETOPT_INIT;
 	mm_mapopt_t opt;
 	mm_idxopt_t ipt;
@@ -136,6 +136,9 @@ int main(int argc, char *argv[])
 		if (c == 'w') ipt.w = atoi(o.arg);
 		else if (c == 'k') ipt.k = atoi(o.arg);
 		else if (c == 'H') ipt.flag |= MM_I_HPC;
+		else if (c == 'U') ipt.flag |= MM_I_NO_DUPIDX;
+		else if (c == 'b') ipt.bf_bits = atoi(o.arg);
+		else if (c == 'F') ipt.high_occ = mm_parse_num(o.arg);
 		else if (c == 'd') fnw = o.arg; // the above are indexing related options, except -I
 		else if (c == 'r') opt.bw = (int)mm_parse_num(o.arg);
 		else if (c == 't') n_threads = atoi(o.arg);
@@ -164,9 +167,7 @@ int main(int argc, char *argv[])
 		else if (c == 'R') rg = o.arg;
 		else if (c == 'h') fp_help = stdout;
 		else if (c == '2') opt.flag |= MM_F_2_IO_THREADS;
-		else if (c == 'W') ipt.flag |= MM_I_NO_DUPIDX;
-		else if (c == 'F') ipt.bf_bits = atoi(o.arg);
-		else if (c == 'f') opt.mid_occ_frac = atof(o.arg);
+		else if (c == 'f') opt.max_occ = mm_parse_num(o.arg);
 		else if (c == 'o') {
 			if (strcmp(o.arg, "-") != 0) {
 				if (freopen(o.arg, "wb", stdout) == NULL) {
@@ -233,10 +234,6 @@ int main(int argc, char *argv[])
 		} else if (c == 'V') {
 			puts(UM_VERSION);
 			return 0;
-		} else if (c == 'U') {
-			opt.mid_occ = strtol(o.arg, &s, 10);
-			if (*s == ',') opt.mid_occ_cap = strtol(s + 1, &s, 10);
-			if (opt.mid_occ_cap < opt.mid_occ) opt.mid_occ_cap = opt.mid_occ;
 		} else if (c == 'u') {
 			if (*o.arg == 'b') opt.flag |= MM_F_SPLICE_FOR|MM_F_SPLICE_REV; // both strands
 			else if (*o.arg == 'f') opt.flag |= MM_F_SPLICE_FOR, opt.flag &= ~MM_F_SPLICE_REV; // match GT-AG
@@ -272,11 +269,11 @@ int main(int argc, char *argv[])
 		fprintf(fp_help, "  Indexing:\n");
 		fprintf(fp_help, "    -k INT       k-mer size (no larger than 28) [%d]\n", ipt.k);
 		fprintf(fp_help, "    -w INT       minimizer window size [%d]\n", ipt.w);
-		fprintf(fp_help, "    -F INT       number of bits for bloom filter [%d]\n", ipt.bf_bits);
+		fprintf(fp_help, "    -b INT       number of bits for bloom filter [%d]\n", ipt.bf_bits);
 		fprintf(fp_help, "    -d FILE      dump index to FILE []\n");
+		fprintf(fp_help, "    -F INT       high k-mer occurrence threshold when indexing [%d]\n", ipt.high_occ);
 		fprintf(fp_help, "  Mapping:\n");
-		fprintf(fp_help, "    -f FLOAT     filter out top FLOAT fraction of repetitive minimizers [%g]\n", opt.mid_occ_frac);
-		fprintf(fp_help, "    -U INT[,INT] choose the minimizer occurrence threshold within this interval [%d,%d]\n", opt.mid_occ, opt.mid_occ_cap);
+		fprintf(fp_help, "    -f INT       max minimizer occurrence [%d]\n", opt.max_occ);
 		fprintf(fp_help, "    -g NUM       stop chain enlongation if there are no minimizers in INT-bp [%d]\n", opt.max_gap);
 		fprintf(fp_help, "    -G NUM       max intron length (effective with -xsplice; changing -r) [200k]\n");
 		fprintf(fp_help, "    -r NUM       bandwidth used in chaining and DP-based alignment [%d]\n", opt.bw);
@@ -306,10 +303,10 @@ int main(int argc, char *argv[])
 		fprintf(fp_help, "    --version    show version number\n");
 		fprintf(fp_help, "  Preset:\n");
 		fprintf(fp_help, "    -x STR       preset (always applied before other options; see unimap.1 for details) []\n");
-		fprintf(fp_help, "                 - clr/ont:  --rmq=no -r10k -A2 -B4 -O4,24 -E2,1 -z400,200 -s80 -K500M\n");
-		fprintf(fp_help, "                 - hifi/ccs: --rmq=no -r10k -A1 -B4 -O6,26 -E2,1 -K500M\n");
-		fprintf(fp_help, "                 - asm5:  -A1 -B19 -O39,81 -E2,1 -N50\n");
-		fprintf(fp_help, "                 - asm10: -A1 -B9  -O16,41 -E2,1 -N50\n");
+		fprintf(fp_help, "                 - ont/clr:  --rmq=no -r10k -A2 -B4 -O4,24 -E2,1 -z400,200 -s80 -K500M\n");
+		fprintf(fp_help, "                 - hifi/ccs: --rmq=no -r10k -A1 -B4 -O6,26 -E2,1 -w21 -K500M\n");
+		fprintf(fp_help, "                 - asm5:  -A1 -B19 -O39,81 -E2,1 -N50 -w21\n");
+		fprintf(fp_help, "                 - asm10: -A1 -B9  -O16,41 -E2,1 -N50 -w21\n");
 		fprintf(fp_help, "                 - asm20: -A1 -B4  -O6,26  -E2,1 -N50\n");
 		fprintf(fp_help, "                 - splice:hq/splice: spliced alignment\n");
 		fprintf(fp_help, "\nSee `man ./unimap.1' for detailed description of these and other advanced command-line options.\n");
@@ -328,12 +325,14 @@ int main(int argc, char *argv[])
 		fp = fopen(argv[o.ind], "rb");
 		mi = mm_idx_load(fp);
 		fclose(fp);
+		if (mi->k != ipt.k || mi->w != ipt.w || mi->high_occ != ipt.high_occ || mi->flag != ipt.flag)
+			fprintf(stderr, "[WARNING]\033[1;31m indexing parameters from the command line are overriden by `%s'\033[0m\n", argv[o.ind]);
 	} else {
 		if (fnw == 0 && argc - o.ind < 2) {
 			fprintf(stderr, "[ERROR] missing input: please specify a query file to map or option -d to keep the index\n");
 			return 1;
 		}
-		mi = um_idx_gen(argv[o.ind], ipt.w, ipt.k, ipt.bucket_bits, ipt.flag, ipt.bf_bits, ipt.mini_batch_size, ipt.adap_occ, n_threads);
+		mi = um_idx_gen(argv[o.ind], ipt.w, ipt.k, ipt.bucket_bits, ipt.flag, ipt.bf_bits, ipt.mini_batch_size, ipt.high_occ, n_threads);
 		if (fnw) {
 			FILE *fp;
 			if ((fp = fopen(fnw, "wb")) == 0) {

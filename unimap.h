@@ -5,7 +5,7 @@
 #include <stdio.h>
 #include <sys/types.h>
 
-#define UM_VERSION "0.0-r32-dirty"
+#define UM_VERSION "0.0-r33-dirty"
 
 #define MM_F_NO_DIAG       0x001 // no exact diagonal hit
 #define MM_F_NO_DUAL       0x002 // skip pairs where query name is lexicographically larger than target name
@@ -63,7 +63,7 @@ typedef struct {
 
 typedef struct {
 	int32_t b, w, k, flag;
-	int32_t adap_occ;
+	int32_t high_occ;
 	uint32_t n_seq;            // number of reference sequences
 	int32_t index;
 	int32_t n_alt;
@@ -103,7 +103,7 @@ typedef struct {
 // indexing and mapping options
 typedef struct {
 	short k, w, flag, bucket_bits, bf_bits;
-	int32_t adap_occ;
+	int32_t high_occ;
 	int64_t mini_batch_size;
 } mm_idxopt_t;
 
@@ -141,9 +141,7 @@ typedef struct {
 	int anchor_ext_len, anchor_ext_shift;
 	float max_clip_ratio; // drop an alignment if BOTH ends are clipped above this ratio
 
-	float mid_occ_frac;   // only used by mm_mapopt_update(); see below
-	int32_t mid_occ_cap;
-	int32_t mid_occ;      // ignore seeds with occurrences above this threshold
+	int32_t max_occ;      // ignore seeds with occurrences above this threshold
 	int64_t mini_batch_size; // size of a batch of query bases to process in parallel
 	int64_t max_sw_mat;
 } mm_mapopt_t;

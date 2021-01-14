@@ -46,7 +46,7 @@ mm_idx_t *mm_idx_init(int w, int k, int b, int flag, int adap_occ)
 	if (w < 1) w = 1;
 	mi = (mm_idx_t*)calloc(1, sizeof(mm_idx_t));
 	mi->w = w, mi->k = k, mi->b = b, mi->flag = flag;
-	mi->adap_occ = adap_occ;
+	mi->high_occ = adap_occ;
 	mi->B = (mm_idx_bucket_t*)calloc(1<<b, sizeof(mm_idx_bucket_t));
 	if (!(mm_dbg_flag & 1)) mi->km = km_init();
 	return mi;
@@ -161,29 +161,6 @@ int mm_idx_getseq(const mm_idx_t *mi, uint32_t rid, uint32_t st, uint32_t en, ui
 	return en - st;
 }
 
-int32_t mm_idx_cal_max_occ(const mm_idx_t *mi, float f)
-{
-	int i;
-	size_t n = 0;
-	uint32_t thres;
-	khint_t *a, k;
-	if (f <= 0.) return INT32_MAX;
-	for (i = 0; i < 1<<mi->b; ++i)
-		if (mi->B[i].h) n += kh_size((idxhash_t*)mi->B[i].h);
-	a = (uint32_t*)malloc(n * 4);
-	for (i = n = 0; i < 1<<mi->b; ++i) {
-		idxhash_t *h = (idxhash_t*)mi->B[i].h;
-		if (h == 0) continue;
-		for (k = 0; k < kh_end(h); ++k) {
-			if (!kh_exist(h, k)) continue;
-			a[n++] = kh_key(h, k)&1? 1 : (uint32_t)kh_val(h, k);
-		}
-	}
-	thres = ks_ksmall_uint32_t(n, a, (uint32_t)((1. - f) * n)) + 1;
-	free(a);
-	return thres;
-}
-
 /*********************************
  * Sort and generate hash tables *
  *********************************/
@@ -284,7 +261,7 @@ static void worker_sketch(void *d, long i, int tid)
 	pipeline_t *p = s->p;
 	mm_bseq1_t *t = &s->seq[i];
 	if (t->l_seq > 0)
-		mm_sketch(0, t->seq, t->l_seq, p->mi->w, p->mi->k, t->rid, p->mi->flag&MM_I_HPC, &s->a[tid], p->mi->dh, 1, p->mi->adap_occ, -1);
+		mm_sketch(0, t->seq, t->l_seq, p->mi->w, p->mi->k, t->rid, p->mi->flag&MM_I_HPC, &s->a[tid], p->mi->dh, 1, p->mi->high_occ, -1);
 	else if (mm_verbose >= 2)
 		fprintf(stderr, "[WARNING] the length database sequence '%s' is 0\n", t->name);
 	free(t->seq); free(t->name);
@@ -397,7 +374,7 @@ void mm_idx_dump(FILE *fp, const mm_idx_t *mi)
 	uint64_t sum_len = 0;
 	uint32_t x[6], i;
 
-	x[0] = mi->w, x[1] = mi->k, x[2] = mi->b, x[3] = mi->flag, x[4] = mi->adap_occ;
+	x[0] = mi->w, x[1] = mi->k, x[2] = mi->b, x[3] = mi->flag, x[4] = mi->high_occ;
 	x[5] = mi->n_seq;
 	fwrite(MM_IDX_MAGIC, 1, 4, fp);
 	fwrite(x, 4, 6, fp);
