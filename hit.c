@@ -209,6 +209,19 @@ void mm_hit_sort(void *km, int *n_regs, mm_reg1_t *r, float alt_diff_frac)
 	}
 	assert(has_cigar + no_cigar == 1);
 	radix_sort_128x(aux, aux + n_aux);
+	if (has_cigar) {
+		int i0, j;
+		for (i0 = 0, i = 1; i <= n; ++i) {
+			if (i == n || aux[i].x>>32 != aux[i0].x>>32) {
+				for (j = i0; j < i; ++j) {
+					mm128_t *a = &aux[j];
+					a->x = (uint64_t)r[a->y].score << 32 | r[a->y].hash;
+				}
+				radix_sort_128x(&aux[i0], &aux[i]);
+				i0 = i;
+			}
+		}
+	}
 	for (i = n_aux - 1; i >= 0; --i)
 		t[n_aux - 1 - i] = r[aux[i].y];
 	memcpy(r, t, sizeof(mm_reg1_t) * n_aux);
@@ -252,7 +265,7 @@ void mm_sync_regs(void *km, int n_regs, mm_reg1_t *regs) // keep mm_reg1_t::{id,
 	mm_set_sam_pri(n_regs, regs);
 }
 
-void mm_select_sub(void *km, float pri_ratio, int min_diff, int best_n, int *n_, mm_reg1_t *r)
+void mm_select_sub(void *km, float pri_ratio, float pri_ratio_max, int min_diff, int best_n, int best_n_max, int *n_, mm_reg1_t *r)
 {
 	if (pri_ratio > 0.0f && *n_ > 0) {
 		int i, k, n = *n_, n_2nd = 0;
@@ -260,9 +273,12 @@ void mm_select_sub(void *km, float pri_ratio, int min_diff, int best_n, int *n_,
 			int p = r[i].parent;
 			if (p == i || r[i].inv) { // primary or inversion
 				r[k++] = r[i];
-			} else if ((r[i].score >= r[p].score * pri_ratio || r[i].score + min_diff >= r[p].score) && n_2nd < best_n) {
-				if (!(r[i].qs == r[p].qs && r[i].qe == r[p].qe && r[i].rid == r[p].rid && r[i].rs == r[p].rs && r[i].re == r[p].re)) // not identical hits
-					r[k++] = r[i], ++n_2nd;
+			} else if ((r[i].score >= r[p].score * pri_ratio || r[i].score + min_diff >= r[p].score) && n_2nd < best_n_max) {
+				int is_same = (r[i].qs == r[p].qs && r[i].qe == r[p].qe && r[i].rid == r[p].rid && r[i].rs == r[p].rs && r[i].re == r[p].re);
+				int add_new = !is_same;
+				if (n_2nd >= best_n && r[i].score < r[p].score * pri_ratio_max && r[i].score + min_diff < r[p].score)
+					add_new = 0;
+				if (add_new) r[k++] = r[i], ++n_2nd;
 				else if (r[i].p) free(r[i].p);
 			} else if (r[i].p) free(r[i].p);
 		}

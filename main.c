@@ -144,9 +144,7 @@ int main(int argc, char *argv[])
 		else if (c == 'v') mm_verbose = atoi(o.arg);
 		else if (c == 'g') opt.max_gap = (int)mm_parse_num(o.arg);
 		else if (c == 'G') mm_mapopt_max_intron_len(&opt, (int)mm_parse_num(o.arg));
-		else if (c == 'N') old_best_n = opt.best_n, opt.best_n = atoi(o.arg);
 		else if (c == 'W') opt.adap_dist = atoi(o.arg);
-		else if (c == 'p') opt.pri_ratio = atof(o.arg);
 		else if (c == 'M') opt.mask_level = atof(o.arg);
 		else if (c == 'c') opt.flag |= MM_F_OUT_CG | MM_F_CIGAR;
 		else if (c == 'D') opt.flag |= MM_F_NO_DIAG;
@@ -168,7 +166,16 @@ int main(int argc, char *argv[])
 		else if (c == 'h') fp_help = stdout;
 		else if (c == '2') opt.flag |= MM_F_2_IO_THREADS;
 		else if (c == 'f') opt.max_occ = mm_parse_num(o.arg);
-		else if (c == 'o') {
+		else if (c == 'p') {
+			opt.pri_ratio = strtod(o.arg, &s);
+			if (*s == ',') opt.pri_ratio_max = strtod(s + 1, &s);
+			if (opt.pri_ratio_max < opt.pri_ratio) opt.pri_ratio_max = opt.pri_ratio;
+		} else if (c == 'N') {
+			old_best_n = opt.best_n;
+			opt.best_n = strtol(o.arg, &s, 10);
+			if (*s == ',') opt.best_n_max = strtol(s + 1, &s, 10);
+			if (opt.best_n_max < opt.best_n) opt.best_n_max = opt.best_n;
+		} else if (c == 'o') {
 			if (strcmp(o.arg, "-") != 0) {
 				if (freopen(o.arg, "wb", stdout) == NULL) {
 					fprintf(stderr, "[ERROR]\033[1;31m failed to write the output to file '%s'\033[0m: %s\n", o.arg, strerror(errno));
@@ -279,7 +286,7 @@ int main(int argc, char *argv[])
 		fprintf(fp_help, "    -n INT       minimal number of minimizers on a chain [%d]\n", opt.min_cnt);
 		fprintf(fp_help, "    -m INT       minimal chaining score (matching bases minus log gap penalty) [%d]\n", opt.min_chain_score);
 		fprintf(fp_help, "    -p FLOAT     min secondary-to-primary score ratio [%g]\n", opt.pri_ratio);
-		fprintf(fp_help, "    -N INT       retain at most INT secondary alignments [%d]\n", opt.best_n);
+		fprintf(fp_help, "    -N INT[,INT] retain at most INT secondary alignments [%d,%d]\n", opt.best_n, opt.best_n_max);
 		fprintf(fp_help, "  Alignment:\n");
 		fprintf(fp_help, "    -A INT       matching score [%d]\n", opt.a);
 		fprintf(fp_help, "    -B INT       mismatch penalty [%d]\n", opt.b);

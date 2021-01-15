@@ -16,7 +16,7 @@ void mm_mapopt_init(mm_mapopt_t *opt)
 {
 	memset(opt, 0, sizeof(mm_mapopt_t));
 	opt->seed = 11;
-	opt->max_occ = 200;
+	opt->max_occ = 1000;
 
 	opt->min_cnt = 3;
 	opt->min_chain_score = 40;
@@ -36,7 +36,9 @@ void mm_mapopt_init(mm_mapopt_t *opt)
 	opt->mask_level = 0.5f;
 	opt->mask_len = INT_MAX;
 	opt->pri_ratio = 0.8f;
+	opt->pri_ratio_max = 0.95f;
 	opt->best_n = 10;
+	opt->best_n_max = 25;
 
 	opt->alt_drop = 0.15f;
 
@@ -73,7 +75,7 @@ int mm_set_opt(const char *preset, mm_idxopt_t *io, mm_mapopt_t *mo)
 		mo->a = 2, mo->b = 4, mo->q = 4, mo->e = 2, mo->q2 = 24, mo->e2 = 1;
 		mo->min_dp_max = 80;
 		mo->bw = 10000;
-		mo->best_n = 5;
+		mo->best_n = 5, mo->best_n_max = 25;
 		mo->flag |= MM_F_NO_RMQ;
 		mo->mini_batch_size = 500000000;
 	} else if (strcmp(preset, "hifi") == 0 || strcmp(preset, "ccs") == 0) {
@@ -81,23 +83,23 @@ int mm_set_opt(const char *preset, mm_idxopt_t *io, mm_mapopt_t *mo)
 		mo->a = 1, mo->b = 4, mo->q = 6, mo->q2 = 26, mo->e = 2, mo->e2 = 1;
 		mo->min_dp_max = 200;
 		mo->bw = 10000;
-		mo->best_n = 5;
+		mo->best_n = 5, mo->best_n_max = 25;
 		mo->flag |= MM_F_NO_RMQ;
 		mo->mini_batch_size = 500000000;
 	} else if (strcmp(preset, "asm5") == 0) {
 		io->w = 21;
 		mo->a = 1, mo->b = 19, mo->q = 39, mo->q2 = 81, mo->e = 3, mo->e2 = 1;
 		mo->min_dp_max = 200;
-		mo->best_n = 50;
+		mo->best_n = mo->best_n_max = 50;
 	} else if (strcmp(preset, "asm10") == 0) {
 		io->w = 21;
 		mo->a = 1, mo->b = 9, mo->q = 16, mo->q2 = 41, mo->e = 2, mo->e2 = 1;
 		mo->min_dp_max = 200;
-		mo->best_n = 50;
+		mo->best_n = mo->best_n_max = 50;
 	} else if (strcmp(preset, "asm20") == 0) {
 		mo->a = 1, mo->b = 4, mo->q = 6, mo->q2 = 26, mo->e = 2, mo->e2 = 1;
 		mo->min_dp_max = 200;
-		mo->best_n = 50;
+		mo->best_n = mo->best_n_max = 50;
 	} else if (strncmp(preset, "splice", 6) == 0 || strcmp(preset, "cdna") == 0) {
 		io->k = 15, io->w = 5;
 		mo->flag |= MM_F_SPLICE | MM_F_SPLICE_FOR | MM_F_SPLICE_REV | MM_F_SPLICE_FLANK | MM_F_NO_RMQ;
