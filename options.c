@@ -25,7 +25,7 @@ void mm_mapopt_init(mm_mapopt_t *opt)
 	opt->max_gap_ref = -1;
 	opt->max_chain_skip = 25;
 	opt->max_chain_iter = 5000;
-	opt->adap_dist = -1;
+	opt->adap_dist = 100;
 	opt->chain_gap_scale = 1.0f;
 	opt->rmq_inner_dist = 1000;
 	opt->rmq_size_cap = 100000;

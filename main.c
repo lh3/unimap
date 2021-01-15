@@ -63,7 +63,6 @@ static ko_longopt_t long_options[] = {
 	{ "alt",            ko_required_argument, 344 },
 	{ "alt-drop",       ko_required_argument, 345 },
 	{ "mask-len",       ko_required_argument, 346 },
-	{ "adap-dist",      ko_required_argument, 347 },
 	{ "help",           ko_no_argument,       'h' },
 	{ "max-intron-len", ko_required_argument, 'G' },
 	{ "version",        ko_no_argument,       'V' },
@@ -101,7 +100,7 @@ static inline void yes_or_no(mm_mapopt_t *opt, int flag, int long_idx, const cha
 
 int main(int argc, char *argv[])
 {
-	const char *opt_str = "2aSDw:k:K:t:r:f:Vv:g:G:d:Xs:x:Hcp:M:n:z:A:B:O:E:m:N:Qu:R:hb:LC:yYPo:F:U";
+	const char *opt_str = "2aSDw:k:K:t:r:f:Vv:g:G:d:Xs:x:Hcp:M:n:z:A:B:O:E:m:N:Qu:R:hb:LC:yYPo:F:UW:";
 	ketopt_t o = KETOPT_INIT;
 	mm_mapopt_t opt;
 	mm_idxopt_t ipt;
@@ -146,6 +145,7 @@ int main(int argc, char *argv[])
 		else if (c == 'g') opt.max_gap = (int)mm_parse_num(o.arg);
 		else if (c == 'G') mm_mapopt_max_intron_len(&opt, (int)mm_parse_num(o.arg));
 		else if (c == 'N') old_best_n = opt.best_n, opt.best_n = atoi(o.arg);
+		else if (c == 'W') opt.adap_dist = atoi(o.arg);
 		else if (c == 'p') opt.pri_ratio = atof(o.arg);
 		else if (c == 'M') opt.mask_level = atof(o.arg);
 		else if (c == 'c') opt.flag |= MM_F_OUT_CG | MM_F_CIGAR;
@@ -209,7 +209,6 @@ int main(int argc, char *argv[])
 		else if (c == 344) alt_list = o.arg; // --alt
 		else if (c == 345) opt.alt_drop = atof(o.arg); // --alt-drop
 		else if (c == 346) opt.mask_len = mm_parse_num(o.arg); // --mask-len
-		else if (c == 347) opt.adap_dist = atoi(o.arg); // --adap-dist
 		else if (c == 315) { // --secondary
 			yes_or_no(&opt, MM_F_NO_PRINT_2ND, o.longidx, o.arg, 0);
 		} else if (c == 316) { // --cs

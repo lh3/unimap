@@ -64,13 +64,13 @@ void mm_select_mz(mm128_v *p, int n0, int len, int dist)
 
 	if (n - n0 == 0 || n - n0 == 1) return;
 	for (i = n0; i < n; ++i)
-		if (p->a[i].y>>32 != 0) ++m;
+		if (p->a[i].y>>32 > 1) ++m;
 	if (m == 0) return; // no high-frequency k-mers; do nothing
 	for (i = n0, last0 = n0 - 1; i <= n; ++i) {
 		if (i == n || p->a[i].y>>32 <= 1) {
 			if (i - last0 > 1) {
-				int32_t ps = last0 < n0? 0 : (uint32_t)p->a[last0].y;
-				int32_t pe = i == n? len : (uint32_t)p->a[i].y;
+				int32_t ps = last0 < n0? 0 : (uint32_t)p->a[last0].y>>1;
+				int32_t pe = i == n? len : (uint32_t)p->a[i].y>>1;
 				int32_t j, k, st = last0 + 1, en = i;
 				int32_t max_high_occ = (int32_t)((double)(pe - ps) / dist + .499);
 				if (max_high_occ > MAX_MAX_HIGH_OCC)
@@ -86,8 +86,7 @@ void mm_select_mz(mm128_v *p, int n0, int len, int dist)
 				}
 				//ks_heapsort_mz(k, b); // sorting is not needed for now
 				for (j = 0; j < k; ++j)
-					if (1<<(b[j].y>>32) < pe - ps)
-						p->a[(uint32_t)b[j].y].y &= 0xFFFFFFFFULL;
+					p->a[(uint32_t)b[j].y].y &= 0xFFFFFFFFULL;
 			}
 			last0 = i;
 		}
@@ -215,6 +214,7 @@ void mm_sketch(void *km, const char *str, int len, int w, int k, uint32_t rid, i
 	}
 //	for (i = n0; i < (int)p->n; ++i) fprintf(stderr, "X\t%d\t%d\n", (int32_t)p->a[i].y, (int32_t)(p->a[i].y>>32));
 	if (adap_dist > w && di) mm_select_mz(p, n0, len, adap_dist);
+//	for (i = n0; i < (int)p->n; ++i) fprintf(stderr, "Y\t%d\t%d\n", (int32_t)p->a[i].y, (int32_t)(p->a[i].y>>32));
 	for (i = n0; i < (int)p->n; ++i)
 		p->a[i].y = p->a[i].y << 32 >> 32 | (uint64_t)rid << 32;
 }

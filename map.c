@@ -34,12 +34,6 @@ void *mm_tbuf_get_km(mm_tbuf_t *b)
 	return b->km;
 }
 
-static void collect_minimizers(void *km, const mm_mapopt_t *opt, const mm_idx_t *mi, int qlen, const char *seq, mm128_v *mv)
-{
-	mv->n = 0;
-	mm_sketch(km, seq, qlen, mi->w, mi->k, 0, mi->flag&MM_I_HPC, mv, mi->dh, 0, mi->high_occ, opt->adap_dist);
-}
-
 typedef struct {
 	uint32_t n;
 	uint32_t q_pos, q_span;
@@ -179,7 +173,7 @@ mm_reg1_t *mm_map_seq(const mm_idx_t *mi, int qlen, const char *seq, int *n_regs
 	hash ^= kh_hash_uint32(qlen) + kh_hash_uint32(opt->seed);
 	hash  = kh_hash_uint32(hash);
 
-	collect_minimizers(b->km, opt, mi, qlen, seq, &mv);
+	mm_sketch(b->km, seq, qlen, mi->w, mi->k, 0, mi->flag&MM_I_HPC, &mv, mi->dh, 0, mi->high_occ, opt->adap_dist);
 	a = collect_seed_hits(b->km, opt, opt->max_occ, mi, qname, &mv, qlen, &n_a, &rep_len, &n_mini_pos, &mini_pos);
 
 	if (mm_dbg_flag & MM_DBG_PRINT_SEED) {
