@@ -86,13 +86,14 @@ void mm_select_mz(mm128_v *p, int n0, int len, int dist)
 				}
 				//ks_heapsort_mz(k, b); // sorting is not needed for now
 				for (j = 0; j < k; ++j)
-					p->a[(uint32_t)b[j].y].y &= 0xFFFFFFFFULL;
+					p->a[(uint32_t)b[j].y].y |= 1ULL<<63;
+				for (j = st; j < en; ++j) p->a[j].y ^= 1ULL<<63;
 			}
 			last0 = i;
 		}
 	}
 	for (i = n = n0; i < (int32_t)p->n; ++i) // squeeze out filtered minimizers
-		if (p->a[i].y>>32 <= 2)
+		if ((p->a[i].y&1ULL<<63) == 0)
 			p->a[n++] = p->a[i];
 	p->n = n;
 }
