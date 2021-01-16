@@ -312,7 +312,7 @@ static void *worker_pipeline(void *shared, int step, void *in)
 					if ((p->opt->flag & MM_F_NO_PRINT_2ND) && r->id != r->parent)
 						continue;
 					if (p->opt->flag & MM_F_OUT_SAM)
-						mm_write_sam(&p->str, mi, t, j, s->n_reg[i], r, km, p->opt->flag, s->rep_len[i]);
+						mm_write_sam(&p->str, mi, t, j, s->n_reg[i], s->reg[i], km, p->opt->flag, s->rep_len[i]);
 					else
 						mm_write_paf(&p->str, mi, t, r, km, p->opt->flag, s->rep_len[i]);
 					mm_err_puts(p->str.s);

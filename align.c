@@ -458,12 +458,11 @@ static void mm_filter_bad_seeds_alt(void *km, int as1, int cnt1, mm128_t *a, int
 
 static void mm_fix_bad_ends(const mm_reg1_t *r, const mm128_t *a, int bw, float end_len_frac, float gap_flank_frac, int32_t *as, int32_t *cnt)
 {
-	int32_t i, l, m, qlen, rlen, len, lthres, mthres;
+	int32_t i, l, m, qlen, rlen, lthres, mthres;
 	*as = r->as, *cnt = r->cnt;
 	if (r->cnt < 3) return;
 	rlen = (int32_t)a[r->as + r->cnt - 1].x - (int32_t)a[r->as].x;
 	qlen = (int32_t)a[r->as + r->cnt - 1].y - (int32_t)a[r->as].y;
-	len = qlen < rlen? qlen : rlen;
 	lthres = (qlen < rlen? qlen : rlen) * end_len_frac;
 	if (lthres > bw) lthres = bw;
 	mthres = r->mlen * end_len_frac * 1.2f;
