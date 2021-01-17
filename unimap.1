@@ -1,4 +1,4 @@
-.TH unimap 1 "4 May 2019" "unimap-0.1 (r941)" "Bioinformatics tools"
+.TH unimap 1 "17 January 2021" "unimap-0.1 (r41)" "Bioinformatics tools"
 .SH NAME
 .PP
 unimap - mapping and alignment between collections of DNA sequences
@@ -13,13 +13,10 @@ unimap
 .I target.fa
 .br
 unimap
-.RB [ -H ]
 .RB [ -k
 .IR kmer ]
 .RB [ -w
 .IR miniWinSize ]
-.RB [ -I
-.IR batchSize ]
 .B -d
 .I target.mmi
 .I target.fa
@@ -50,54 +47,22 @@ unimap
 .I output.paf
 .RE
 
-* Long-read overlap without CIGAR:
-.RS 4
-unimap
-.B -x
-ava-ont
-.RB [ -t
-.IR nThreads ]
-.I target.fa
-.I query.fa
->
-.I output.paf
-.RE
 .SH DESCRIPTION
 .PP
-Minimap2 is a fast sequence mapping and alignment program that can find
-overlaps between long noisy reads, or map long reads or their assemblies to a
-reference genome optionally with detailed alignment (i.e. CIGAR). At present,
-it works efficiently with query sequences from a few kilobases to ~100
-megabases in length at a error rate ~15%. Minimap2 outputs in the PAF or the
-SAM format.
+Unimap is a fork of minimap2 optimized for assembly-to-reference
+alignment. It integrates the minigraph chaining algorithm and can align
+through long INDELs (up to 100kb by default) much faster than minimap2. Unimap
+is a better fit for resolving segmental duplications and is recommended over
+minimap2 for alignment between high-quality assemblies.
 .SH OPTIONS
 .SS Indexing options
 .TP 10
 .BI -k \ INT
-Minimizer k-mer length [15]
+Minimizer k-mer length [21]
 .TP
 .BI -w \ INT
-Minimizer window size [2/3 of k-mer length]. A minimizer is the smallest k-mer
+Minimizer window size [11]. A minimizer is the smallest k-mer
 in a window of w consecutive k-mers.
-.TP
-.B -H
-Use homopolymer-compressed (HPC) minimizers. An HPC sequence is constructed by
-contracting homopolymer runs to a single base. An HPC minimizer is a minimizer
-on the HPC sequence.
-.TP
-.BI -I \ NUM
-Load at most
-.I NUM
-target bases into RAM for indexing [4G]. If there are more than
-.I NUM
-bases in
-.IR target.fa ,
-unimap needs to read
-.I query.fa
-multiple times to map it against each batch of target sequences.
-.I NUM
-may be ending with k/K/m/M/g/G. NB: mapping quality is incorrect given a
-multi-part index.
 .TP
 .B --idx-no-seq
 Don't store target sequences in the index. It saves disk space and memory but
@@ -112,14 +77,13 @@ Save the minimizer index of
 .I target.fa
 to
 .I FILE
-[no dump]. Minimap2 indexing is fast. It can index the human genome in a couple
+[no dump]. Unimap indexing is fast. It can index the human genome in a couple
 of minutes. If even shorter startup time is desired, use this option to save
 the index. Indexing options are fixed in the index file. When an index file is
 provided as the target sequences, options
-.BR -H ,
-.BR -k ,
-.BR -w ,
-.B -I
+.B -k
+and
+.B -w
 will be effectively overridden by the options stored in the index file.
 .TP
 .BI --alt \ FILE
@@ -131,27 +95,10 @@ Drop ALT hits by
 fraction when ranking and computing mapping quality [0.15]
 .SS Mapping options
 .TP 10
-.BI -f \ FLOAT | INT1 [, INT2 ]
-If fraction, ignore top
-.I FLOAT
-fraction of most frequent minimizers [0.0002]. If integer,
-ignore minimizers occuring more than
-.I INT1
-times.
-.I INT2
-is only effective in the
-.B --sr
-or
-.B -xsr
-mode, which sets the threshold for a second round of seeding.
-.TP
-.BI --min-occ-floor \ INT
-Force unimap to always use k-mers occurring
+.BI -f \ INT
+Ignore k-mers if occurring more than
 .I INT
-times or less [0]. In effect, the max occurrence threshold is set to
-the
-.RI max{ INT ,
-.BR -f }.
+times [1000].
 .TP
 .BI -g \ INT
 Stop chain enlongation if there are no minimizers within
@@ -242,7 +189,7 @@ Keep an alignment if dropping it leaves an unaligned region on query longer than
 .BR --hard-mask-level .
 .TP
 .BI --max-chain-skip \ INT
-A heuristics that stops chaining early [25]. Minimap2 uses dynamic programming
+A heuristics that stops chaining early [25]. Unimap uses dynamic programming
 for chaining. The time complexity is quadratic in the number of seeds. This
 option makes unimap exits the inner loop if it repeatedly sees seeds already
 on chains. Set
@@ -313,7 +260,7 @@ the diagonal of the DP matrix (diagonal X-drop, or Z-drop) [400,200]. If the
 drop of score is above
 .IR INT2 ,
 unimap will reverse complement the query in the related region and align
-again to test small inversions. Minimap2 truncates alignment if there is an
+again to test small inversions. Unimap truncates alignment if there is an
 inversion or the drop of score is greater than
 .IR INT1 .
 Decrease
@@ -395,7 +342,7 @@ Set 0 to disable [0].
 .SS Input/output options
 .TP 10
 .B -a
-Generate CIGAR and output alignments in the SAM format. Minimap2 outputs in PAF
+Generate CIGAR and output alignments in the SAM format. Unimap outputs in PAF
 by default.
 .TP
 .BI -o \ FILE
@@ -448,12 +395,12 @@ Output =/X CIGAR operators for sequence match/mismatch.
 In SAM output, use soft clipping for supplementary alignments.
 .TP
 .BI --seed \ INT
-Integer seed for randomizing equally best hits. Minimap2 hashes
+Integer seed for randomizing equally best hits. Unimap hashes
 .I INT
 and read name when choosing between equally best hits. [11]
 .TP
 .BI -t \ INT
-Number of threads [3]. Minimap2 uses at most three threads when indexing target
+Number of threads [3]. Unimap uses at most three threads when indexing target
 sequences, and uses up to
 .IR INT +1
 threads when mapping (the extra thread is for I/O, which is frequently idle and
@@ -503,54 +450,39 @@ Available
 are:
 .RS
 .TP 8
-.B map-pb
-PacBio/Oxford Nanopore read to reference mapping
-.RB ( -Hk19 )
+.B ont
+Genomic Oxford Nanopore reads to reference mapping
+.RB ( --rmq=no
+.B -r10k -A2 -B4 -O4,24 -E2,1 -z400,200 -s80
+.BR -K500M )
 .TP
-.B map-ont
-Slightly more sensitive for Oxford Nanopore to reference mapping
-.RB ( -k15 ).
-For PacBio reads, HPC minimizers consistently leads to faster performance and
-more sensitive results in comparison to normal minimizers. For Oxford Nanopore
-data, normal minimizers are better, though not much. The effectiveness of HPC
-is determined by the sequencing error mode.
+.B hifi
+Genomic PacBio HiFi reads to reference mapping
+.RB ( --rmq=no
+.B -r10k -A1 -B4 -O6,26 -E2,1 -w21
+.BR -K500M )
 .TP
 .B asm5
 Long assembly to reference mapping
-.RB ( -k19
-.B -w19 -A1 -B19 -O39,81 -E3,1 -s200 -z200 -N50
-.BR --min-occ-floor=100 ).
+.RB ( -A1
+.B -B19 -O39,81 -E2,1 -N50
+.BR -w21 ).
 Typically, the alignment will not extend to regions with 5% or higher sequence
 divergence. Only use this preset if the average divergence is far below 5%.
 .TP
 .B asm10
 Long assembly to reference mapping
-.RB ( -k19
-.B -w19 -A1 -B9 -O16,41 -E2,1 -s200 -z200 -N50
-.BR --min-occ-floor=100 ).
+.RB ( -A1
+.B -B9  -O16,41 -E2,1 -N50
+.BR -w21 ).
 Up to 10% sequence divergence.
 .TP
 .B asm20
 Long assembly to reference mapping
-.RB ( -k19
-.B -w10 -A1 -B4 -O6,26 -E2,1 -s200 -z200 -N50
-.BR --min-occ-floor=100 ).
+.RB ( -A1
+.B -B4  -O6,26  -E2,1
+.BR -N50 ).
 Up to 20% sequence divergence.
-.TP
-.B ava-pb
-PacBio all-vs-all overlap mapping
-.RB ( -Hk19
-.B -Xw5 -m100 -g10000 --max-chain-skip
-.BR 25 ).
-.TP
-.B ava-ont
-Oxford Nanopore all-vs-all overlap mapping
-.RB ( -k15
-.B -Xw5 -m100 -g10000 -r2000 --max-chain-skip
-.BR 25 ).
-Similarly, the major difference from
-.B ava-pb
-is that this preset is not using HPC minimizers.
 .TP
 .B splice
 Long-read spliced alignment
@@ -576,7 +508,7 @@ Long-read splice alignment for PacBio CCS reads
 .B --no-kalloc
 Use the libc default allocator instead of the kalloc thread-local allocator.
 This debugging option is mostly used with Valgrind to detect invalid memory
-accesses. Minimap2 runs slower with this option, especially in the
+accesses. Unimap runs slower with this option, especially in the
 multi-threading mode.
 .TP
 .B --print-qname
@@ -586,7 +518,7 @@ Print query names to stderr, mostly to see which query is crashing unimap.
 Print seed positions to stderr, for debugging only.
 .SH OUTPUT FORMAT
 .PP
-Minimap2 outputs mapping positions in the Pairwise mApping Format (PAF) by
+Unimap outputs mapping positions in the Pairwise mApping Format (PAF) by
 default. PAF is a TAB-delimited text format with each line consisting of at
 least 12 fields as are described in the following table:
 .TS
@@ -614,7 +546,7 @@ When alignment is available, column 11 gives the total number of sequence
 matches, mismatches and gaps in the alignment; column 10 divided by column 11
 gives the BLAST-like alignment identity. When alignment is unavailable,
 these two columns are approximate. PAF may optionally have additional fields in
-the SAM-like typed key-value format. Minimap2 may output the following tags:
+the SAM-like typed key-value format. Unimap may output the following tags:
 .TS
 center box;
 cb | cb | cb
@@ -662,13 +594,8 @@ _
 .SH LIMITATIONS
 .TP 2
 *
-Unimap may produce suboptimal alignments through long low-complexity regions
-where seed positions may be suboptimal. This should not be a big concern
-because even the optimal alignment may be wrong in such regions.
-.TP
-*
-Unimap requires SSE2 or NEON instructions to compile. It is possible to add
-non-SSE2/NEON support, but it would make unimap slower by several times.
+Unimap is specialized for assembly-to-reference alignment. Other types of
+alignment have not been carefully evaluated.
 .SH SEE ALSO
 .PP
-miniasm(1), minimap(1), bwa(1).
+minimap2(1), minigraph(1).
