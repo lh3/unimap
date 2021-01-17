@@ -30,5 +30,18 @@ support of multi-part index and short-read mapping. Its long-read alignment is
 different from minimap2 but is not necessarily better. Unimap is more of a
 specialized minimap2 at the moment.
 
+## Notes
+
+* With the default `asm5` preset, unimap may align a highly diverged region
+  as a long insertions followed by a long deletion. [Truvari][tru] may identify
+  two false positive calls in this case, but these arguably are not errors.
+
+* Unimap takes ~5 minutes to index a human genome, slower than minimap2. It is
+  recommended to save the index for faster startup.
+
+* The default `ont` preset has been tuned for more recent Nanopore reads at
+  ~95% accuracy.
+
 [mm2]: https://github.com/lh3/minimap2
 [mg]: https://github.com/lh3/minigraph
+[tru]: https://github.com/spiralgenetics/truvari
