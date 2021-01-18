@@ -71,7 +71,7 @@ int mm_set_opt(const char *preset, mm_idxopt_t *io, mm_mapopt_t *mo)
 	if (preset == 0) {
 		mm_idxopt_init(io);
 		mm_mapopt_init(mo);
-	} else if (strcmp(preset, "clr") == 0 || strcmp(preset, "ont") == 0 || strcmp(preset, "map-ont") == 0 || strcmp(present, "map-pb") == 0) {
+	} else if (strcmp(preset, "clr") == 0 || strcmp(preset, "ont") == 0 || strcmp(preset, "map-ont") == 0 || strcmp(preset, "map-pb") == 0) {
 		mo->a = 2, mo->b = 4, mo->q = 4, mo->e = 2, mo->q2 = 24, mo->e2 = 1;
 		mo->min_dp_max = 80;
 		mo->bw = 10000;
