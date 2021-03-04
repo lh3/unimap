@@ -40,7 +40,7 @@ endif
 all:$(PROG)
 
 unimap:main.o libunimap.a
-		$(CC) $(CFLAGS) main.o -o $@ -L. -lunimap $(LIBS)
+		$(CC) $(CFLAGS) main.o -o $@ $(LDFLAGS) -L. -lunimap $(LIBS)
 
 libunimap.a:$(OBJS)
 		$(AR) -csru $@ $(OBJS)
